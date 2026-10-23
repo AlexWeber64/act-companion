@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "act-companion"
+version = "0.1.0"
+description = "Unofficial desktop dashboard and notifier for activity.act.edu (Moodle)"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+dependencies = [
+    "requests>=2.31",
+    "keyring>=24",
+    "platformdirs>=4",
+]
+
+[project.urls]
+Homepage = "https://github.com/Cyverno/act-companion"
+Mirror = "https://gitlab.com/AlexWeber64/act-companion"
+
+[project.scripts]
+act-companion = "act_companion.__main__:main"
+
+[project.gui-scripts]
+act-companion-background = "act_companion.__main__:background"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+act_companion = ["static/*"]

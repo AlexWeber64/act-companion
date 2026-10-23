@@ -1,0 +1,17 @@
+.venv/
+__pycache__/
+*.egg-info/
+build/
+dist/
+
+# Personal data and output from the original single-user scripts
+capabilities.json
+watch_state.json
+watcher.log
+
+# Separate projects that live in this folder but are not part of the client
+.wrangler/
+site/
+cs192-list-site/
+cs192_list.json
+build_list.py
