@@ -1,0 +1,108 @@
+# Builds ACT-Companion.exe on a GitHub-hosted Windows runner for every push and pull request.
+# Pushing a tag such as v0.2.0 also creates a draft GitHub release with that build attached.
+name: Build
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build ACT-Companion.exe
+    runs-on: windows-latest
+    timeout-minutes: 30
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      artifact-id: ${{ steps.upload.outputs.artifact-id }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      # No pip cache on purpose: every build starts clean, so it depends only on the repository.
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"
+
+      - name: Install
+        run: python -m pip install -e ".[build]"
+
+      - name: Check version
+        id: version
+        shell: bash
+        run: |
+          v=$(python -c "import act_companion; print(act_companion.__version__)")
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+          if [[ "$GITHUB_REF" == refs/tags/* && "$GITHUB_REF_NAME" != "v$v" ]]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match __version__ ($v) in src/act_companion/__init__.py"
+            exit 1
+          fi
+
+      - name: Build
+        run: python packaging/build_exe.py
+
+      # A --windowed exe has no console, so check the exit code. An import error would show a dialog and time out.
+      - name: Smoke test
+        shell: pwsh
+        run: |
+          $p = [Diagnostics.Process]::Start((Resolve-Path dist\ACT-Companion.exe).Path, "--version")
+          if (-not $p.WaitForExit(60000)) { $p.Kill($true); throw "ACT-Companion.exe --version did not exit" }
+          if ($p.ExitCode -ne 0) { throw "ACT-Companion.exe --version exited with $($p.ExitCode)" }
+
+      - name: Checksum
+        shell: bash
+        run: echo "SHA-256 of the unsigned ACT-Companion.exe: \`$(sha256sum dist/ACT-Companion.exe | cut -d' ' -f1)\`" >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v7
+        id: upload
+        with:
+          name: ACT-Companion
+          path: dist/ACT-Companion.exe
+          if-no-files-found: error
+
+  release:
+    name: Draft release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions:
+      contents: write  # create the release
+      actions: read    # let SignPath fetch the build artifact
+    steps:
+      # Code signing through SignPath. It stays off until the repository variable SIGNPATH_ORGANIZATION_ID and the
+      # secret SIGNPATH_API_TOKEN are set; until then the release gets the unsigned build.
+      - name: Sign
+        if: vars.SIGNPATH_ORGANIZATION_ID != ''
+        uses: signpath/github-action-submit-signing-request@v3
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: act-companion
+          signing-policy-slug: release-signing
+          github-artifact-id: ${{ needs.build.outputs.artifact-id }}
+          wait-for-completion: true
+          wait-for-completion-timeout-in-seconds: 3600  # every request waits for an approver
+          output-artifact-directory: release
+
+      - name: Use the unsigned build
+        if: vars.SIGNPATH_ORGANIZATION_ID == ''
+        uses: actions/download-artifact@v8
+        with:
+          name: ACT-Companion
+          path: release
+
+      - name: Create draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.build.outputs.version }}
+        run: |
+          sum=$(sha256sum release/ACT-Companion.exe | cut -d' ' -f1)
+          gh release create "$GITHUB_REF_NAME" release/ACT-Companion.exe --repo "$GITHUB_REPOSITORY" --draft \
+            --title "ACT Companion $VERSION" --notes "SHA-256 of ACT-Companion.exe: \`$sum\`"

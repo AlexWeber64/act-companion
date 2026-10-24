@@ -128,6 +128,11 @@ To build the Windows .exe (on Windows):
 .venv\Scripts\python packaging\build_exe.py     # writes dist\ACT-Companion.exe
 ```
 
+Release builds are not made by hand. The [Build workflow](.github/workflows/build.yml) builds the .exe on GitHub's
+Windows runners for every push and pull request (download it from the run's artifacts). To release, bump the version in
+`src/act_companion/__init__.py` and `pyproject.toml`, then push a tag such as `v0.3.0`: the workflow creates a draft
+release with that build attached, ready to review and publish.
+
 | File | Purpose |
 |---|---|
 | `src/act_companion/moodle.py` | Moodle Web Services client and token storage |
