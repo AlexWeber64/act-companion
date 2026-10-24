@@ -9,7 +9,7 @@ import argparse
 import sys
 import webbrowser
 
-from . import __version__, config, notify, server
+from . import __version__, autostart, config, notify, server
 
 
 def main(argv=None):
@@ -30,6 +30,11 @@ def main(argv=None):
         print("ok" if ok else f"failed: {w.status['last_error']}")
         return 0 if ok else 1
 
+    if getattr(sys, "frozen", False):
+        try:
+            autostart.refresh()
+        except OSError as e:
+            config.log(f"could not update start at login: {e}")
     url = server.app_url()
     if server.ping():  # already running: just bring up the dashboard
         if not a.background:

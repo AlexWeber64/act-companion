@@ -15,9 +15,13 @@ dependencies = [
     "platformdirs>=4",
 ]
 
+[project.optional-dependencies]
+build = ["pyinstaller>=6.16", "pillow>=10"]  # only for packaging/build_exe.py
+
 [project.urls]
-Homepage = "https://github.com/Cyverno/act-companion"
-Mirror = "https://gitlab.com/AlexWeber64/act-companion"
+Homepage = "https://github.com/AlexWeber64/act-companion"
+Mirror-GitHub = "https://github.com/Cyverno/act-companion"
+Mirror-GitLab = "https://gitlab.com/AlexWeber64/act-companion"
 
 [project.scripts]
 act-companion = "act_companion.__main__:main"
@@ -29,4 +33,4 @@ act-companion-background = "act_companion.__main__:background"
 where = ["src"]
 
 [tool.setuptools.package-data]
-act_companion = ["static/*"]
+act_companion = ["static/*", "static/fonts/*"]

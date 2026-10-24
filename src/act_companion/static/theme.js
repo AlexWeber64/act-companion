@@ -1,5 +1,5 @@
-// Applied before first paint so a saved light/dark choice does not flash. Falls back to the system setting.
+// Applied before first paint so a saved theme does not flash. No value = follow the system (Nocturne dark, Daylight light).
 try {
-  const t = localStorage.getItem("theme");
-  if (t === "light" || t === "dark") document.documentElement.dataset.theme = t;
+  var t = localStorage.getItem("theme");
+  if (["nocturne", "graphite", "daylight", "paper"].indexOf(t) !== -1) document.documentElement.dataset.theme = t;
 } catch (e) { /* storage unavailable, follow the system */ }

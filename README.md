@@ -9,24 +9,39 @@ It runs on your own computer and signs in with your own account, the same way th
 
 ## Features
 
-- **Home dashboard:** what is due this week, overdue work, unread notifications and messages, your courses and grades at a glance.
-- **Deadlines** grouped into Overdue, Today, Tomorrow, Next 7 days and Later.
-- **Courses:** every course gets its own color. Browse content by section, filter files by name, download with one click.
-  Assignments, forums (with attachments) and item-by-item grades with feedback are one tab away.
+- **Home:** what is due this week, overdue work, unread notifications and messages, your courses and grades at a glance.
+- **Planner:** a week grid with overdue work pinned on the left, countdowns for what is next, and week-by-week navigation
+  (`Alt` + arrow keys).
+- **Deadlines** grouped into Overdue, Today, Tomorrow, Next 7 days and Later, filterable by course.
+- **Courses:** browse content by section, filter files by name with highlighted matches, download with one click.
+  Assignments (with submission status), forums and discussions (with attachments), and item-by-item grades with feedback
+  are one tab away. Reorder your courses and pick their colors in Settings.
 - **Search everything:** press `Ctrl K` (or `/`) to jump to any course, file, deadline or page.
-- **Messages and notifications** in a familiar two-pane layout, with "mark all as read".
-- **Light and dark themes** (follows your system, or pick one).
+- **Messages and notifications:** conversations in two panes, notifications grouped by day; opening one marks it read.
+- **Four themes:** Nocturne, Graphite, Daylight and Paper, or follow your system.
+- **Works on a phone-sized window** too, with a bottom tab bar.
 - **Desktop alerts** on Windows, macOS and Linux:
   - new deadlines, and reminders before they are due (24 hours and 1 hour by default)
   - newly posted grades (the grade itself stays hidden unless you turn that on)
   - *optional, off by default:* course changes, meaning new or newly visible files, resources and forum posts
 
-## Install
+## Install on Windows (no Python needed)
+
+1. Download **ACT Companion.exe** from the [latest release](https://github.com/AlexWeber64/act-companion/releases/latest).
+2. Put it somewhere permanent, for example a folder in Documents, and double-click it.
+3. Windows may say **"Windows protected your PC"**, because the app is not signed with a paid code-signing certificate.
+   Click **More info**, then **Run anyway**. You only need to do this once.
+4. Your browser opens ACT Companion. Sign in, then turn on **Settings > Start when I log in to this computer**.
+
+To open it again later, double-click the .exe again. If you move the .exe, open it once from its new place so start at
+login follows it.
+
+## Install from source
 
 You need [Python 3.10 or newer](https://www.python.org/downloads/) and git.
 
 ```sh
-git clone https://github.com/Cyverno/act-companion.git
+git clone https://github.com/AlexWeber64/act-companion.git
 cd act-companion
 python -m venv .venv
 ```
@@ -44,7 +59,8 @@ your alerts and turn on **Start when I log in to this computer** so alerts keep 
 Alerts only arrive while ACT Companion is running. Closing the browser tab does not stop it; use **Settings > Quit** for that.
 Running `act-companion` again while it is already running just reopens the dashboard.
 
-The code is mirrored on GitLab at [gitlab.com/AlexWeber64/act-companion](https://gitlab.com/AlexWeber64/act-companion).
+The code is mirrored at [github.com/Cyverno/act-companion](https://github.com/Cyverno/act-companion) and
+[gitlab.com/AlexWeber64/act-companion](https://gitlab.com/AlexWeber64/act-companion).
 
 ### Alerts on each system
 
@@ -82,7 +98,7 @@ down or starts refusing requests, ACT Companion backs off automatically (up to 3
 ## Uninstall
 
 1. In **Settings**, turn off **Start when I log in**, then **Sign out** and **Quit**.
-2. Delete the project folder and the app data folder above.
+2. Delete ACT Companion.exe (or the project folder, if you installed from source) and the app data folder above.
 
 If you deleted the folder first, remove the startup entry by hand: the `ACTCompanion` value under
 `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` (Windows), `~/Library/LaunchAgents/com.actcompanion.agent.plist` (macOS),
@@ -95,7 +111,14 @@ act-companion --check               # run one round of checks in the foreground
 act-companion --test-notification   # show a test alert
 ```
 
-There is no build step. The UI is plain HTML, CSS and JavaScript, served by the Python standard library.
+There is no build step for development. The UI is plain HTML, CSS and JavaScript, served by the Python standard library.
+
+To build the Windows .exe (on Windows):
+
+```sh
+.venv\Scripts\pip install -e ".[build]"
+.venv\Scripts\python packaging\build_exe.py     # writes dist\ACT Companion.exe
+```
 
 | File | Purpose |
 |---|---|
@@ -104,10 +127,15 @@ There is no build step. The UI is plain HTML, CSS and JavaScript, served by the 
 | `src/act_companion/notify.py` | Desktop alerts per OS |
 | `src/act_companion/autostart.py` | Start at login per OS |
 | `src/act_companion/server.py` | Local web server, JSON API and file proxy |
-| `src/act_companion/static/` | The dashboard UI |
+| `src/act_companion/static/app.js` | The dashboard UI (rendering, routing, interactions) |
+| `src/act_companion/static/companion.css` | The design system and screen styles, exactly as exported from the design. Do not edit by hand; replace it with a new export |
+| `src/act_companion/static/app.css` | Small runtime additions the design export does not cover |
+
+`docs/DESIGN.md` describes how every screen is meant to behave.
 
 Issues and merge requests are welcome. Please never include real student data (names, grades, messages) in issues or screenshots.
 
 ## License
 
-[MIT](LICENSE)
+[MIT](LICENSE). The bundled Inter font (SIL Open Font License) and Phosphor icons (MIT) keep their own licenses; see
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

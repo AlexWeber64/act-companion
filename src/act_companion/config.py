@@ -26,6 +26,8 @@ DEFAULTS = {
     "alerts": {"content": False, "deadlines": True, "grades": True},  # course-change watching is opt-in
     "reminder_hours": [24, 1],
     "grades_show_value": False,  # grades on screen can be seen by anyone nearby
+    "course_order": [],  # course ids in the order the user arranged them; empty means Moodle order
+    "course_colors": {},  # course id -> palette slot 1 to 8
 }
 
 

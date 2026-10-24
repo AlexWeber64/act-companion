@@ -9,6 +9,7 @@ import re
 import secrets
 import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 from http import cookies
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -25,7 +26,7 @@ COOKIE = "ac_session"
 CACHE_TTL = 60
 MAX_BODY = 64 * 1024
 MIME = {".html": "text/html; charset=utf-8", ".js": "text/javascript", ".css": "text/css",
-        ".svg": "image/svg+xml", ".png": "image/png"}
+        ".svg": "image/svg+xml", ".png": "image/png", ".woff2": "font/woff2", ".txt": "text/plain; charset=utf-8"}
 
 FILE_RE = re.compile(r"https://activity\.act\.edu/(?:webservice/)?pluginfile\.php/[^\"'\s<>)\\]*")
 
@@ -85,7 +86,8 @@ def r_status(m, q):
         return out
     try:
         i = me()
-        out.update(logged_in=True, user={"userid": i["userid"], "fullname": i["fullname"], "site": i["sitename"]})
+        out.update(logged_in=True, user={"userid": i["userid"], "fullname": i["fullname"], "username": i.get("username"),
+                                         "site": i["sitename"]})
     except moodle.AuthError:
         out["expired"] = True
     except (moodle.MoodleError, requests.RequestException, ValueError) as e:
@@ -119,9 +121,30 @@ def r_course(m, q):
     return cached(f"c{cid}", lambda: moodle.call("core_course_get_contents", courseid=cid))
 
 
+def _submission_status(a):
+    """Summarize one assignment's submission and grading state for the student."""
+    try:
+        s = moodle.call("mod_assign_get_submission_status", assignid=a["id"])
+    except (moodle.MoodleError, requests.RequestException, ValueError):
+        return None
+    last = s.get("lastattempt") or {}
+    sub = last.get("submission") or last.get("teamsubmission") or {}
+    fb = s.get("feedback") or {}
+    return {"submission": sub.get("status"), "grading": last.get("gradingstatus"), "grade": fb.get("gradefordisplay")}
+
+
 def r_assignments(m, q):
     cid = int(m.group(1))
-    return cached(f"a{cid}", lambda: moodle.call("mod_assign_get_assignments", courseids=[cid]))
+
+    def fetch():
+        data = moodle.call("mod_assign_get_assignments", courseids=[cid])
+        assigns = data["courses"][0].get("assignments", []) if data.get("courses") else []
+        # One status call per assignment; run them side by side so the tab opens quickly.
+        with ThreadPoolExecutor(max_workers=6) as pool:
+            for a, st in zip(assigns, pool.map(_submission_status, assigns)):
+                a["status"] = st
+        return data
+    return cached(f"a{cid}", fetch)
 
 
 def r_forums(m, q):
@@ -231,6 +254,10 @@ def p_settings(body):
     if "reminder_hours" in body:
         hours = sorted({float(h) for h in body["reminder_hours"] if 0 < float(h) <= 168}, reverse=True)[:5]
         s["reminder_hours"] = [int(h) if h == int(h) else h for h in hours]
+    if "course_order" in body:
+        s["course_order"] = [int(x) for x in body["course_order"]][:200]
+    if "course_colors" in body:
+        s["course_colors"] = {str(int(k)): int(v) for k, v in body["course_colors"].items() if 1 <= int(v) <= 8}
     if "grades_show_value" in body:
         s["grades_show_value"] = bool(body["grades_show_value"])
     config.save_settings(s)
@@ -240,6 +267,15 @@ def p_settings(body):
 
 def p_refresh(body):
     _cache.clear()
+    return {"ok": True}
+
+
+def p_mark_one_read(body):
+    nid = int(body.get("id", 0))
+    if nid <= 0:
+        raise HttpError(400, "missing notification id")
+    moodle.call("core_message_mark_notification_read", notificationid=nid, timeread=int(time.time()))
+    _cache.pop("unread", None)
     return {"ok": True}
 
 
@@ -271,6 +307,7 @@ def p_quit(body):
 POST_ROUTES = {"/api/login": p_login, "/api/logout": p_logout, "/api/settings": p_settings,
                "/api/test-notification": p_test, "/api/check-now": p_check,
                "/api/autostart": p_autostart, "/api/quit": p_quit, "/api/notifications/read": p_mark_read,
+               "/api/notification/read": p_mark_one_read,
                "/api/refresh": p_refresh}
 
 

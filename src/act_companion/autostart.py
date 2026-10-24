@@ -12,6 +12,8 @@ WIN_RUN_KEY = r"Software\Microsoft\Windows\CurrentVersion\Run"
 
 
 def command():
+    if getattr(sys, "frozen", False):  # the packaged .exe is its own launcher
+        return [sys.executable, "--background"]
     exe = Path(sys.executable)
     if sys.platform == "win32":
         windowless = exe.with_name("pythonw.exe")
@@ -72,3 +74,14 @@ def set_enabled(enabled):
         else:
             LINUX_DESKTOP.unlink(missing_ok=True)
     return is_enabled()
+
+
+def refresh():
+    """If start at login is on but points at another copy (the .exe was moved or replaced), point it at this one."""
+    if sys.platform != "win32" or not is_enabled():
+        return
+    import winreg
+    with winreg.OpenKey(winreg.HKEY_CURRENT_USER, WIN_RUN_KEY) as k:
+        current = winreg.QueryValueEx(k, NAME)[0]
+    if current != subprocess.list2cmdline(command()):
+        set_enabled(True)
