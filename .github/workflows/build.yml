@@ -57,7 +57,8 @@ jobs:
 
       - name: Checksum
         shell: bash
-        run: echo "SHA-256 of the unsigned ACT-Companion.exe: \`$(sha256sum dist/ACT-Companion.exe | cut -d' ' -f1)\`" >> "$GITHUB_STEP_SUMMARY"
+        run: |
+          echo "SHA-256 of the unsigned ACT-Companion.exe: \`$(sha256sum dist/ACT-Companion.exe | cut -d' ' -f1)\`" >> "$GITHUB_STEP_SUMMARY"
 
       - uses: actions/upload-artifact@v7
         id: upload
