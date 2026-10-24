@@ -1,4 +1,4 @@
-"""Build the Windows app: dist/ACT Companion.exe, a single file that needs no Python.
+"""Build the Windows app: dist/ACT-Companion.exe, a single file that needs no Python.
 
   pip install -e ".[build]"
   python packaging/build_exe.py
@@ -12,7 +12,7 @@ ROOT = Path(__file__).resolve().parents[1]
 BUILD = ROOT / "build"
 DIST = ROOT / "dist"
 STATIC = ROOT / "src" / "act_companion" / "static"
-NAME = "ACT Companion"
+NAME = "ACT-Companion"  # no spaces: GitHub release assets cannot have them
 
 sys.path.insert(0, str(Path(__file__).parent))
 import make_icon  # noqa: E402
@@ -26,7 +26,7 @@ VERSION_INFO = """VSVersionInfo(
       StringStruct('FileVersion', '{v}'),
       StringStruct('InternalName', 'ACT Companion'),
       StringStruct('LegalCopyright', 'MIT License. Unofficial, not affiliated with the school.'),
-      StringStruct('OriginalFilename', 'ACT Companion.exe'),
+      StringStruct('OriginalFilename', 'ACT-Companion.exe'),
       StringStruct('ProductName', 'ACT Companion'),
       StringStruct('ProductVersion', '{v}')])]),
     VarFileInfo([VarStruct('Translation', [1033, 1200])])

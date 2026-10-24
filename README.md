@@ -27,7 +27,8 @@ It runs on your own computer and signs in with your own account, the same way th
 
 ## Install on Windows (no Python needed)
 
-1. Download **ACT Companion.exe** from the [latest release](https://github.com/AlexWeber64/act-companion/releases/latest).
+1. Download **[ACT-Companion.exe](https://github.com/AlexWeber64/act-companion/releases/latest/download/ACT-Companion.exe)**
+   (or pick a version on the [releases page](https://github.com/AlexWeber64/act-companion/releases)).
 2. Put it somewhere permanent, for example a folder in Documents, and double-click it.
 3. Windows may say **"Windows protected your PC"**, because the app is not signed with a paid code-signing certificate.
    Click **More info**, then **Run anyway**. You only need to do this once.
@@ -98,7 +99,7 @@ down or starts refusing requests, ACT Companion backs off automatically (up to 3
 ## Uninstall
 
 1. In **Settings**, turn off **Start when I log in**, then **Sign out** and **Quit**.
-2. Delete ACT Companion.exe (or the project folder, if you installed from source) and the app data folder above.
+2. Delete ACT-Companion.exe (or the project folder, if you installed from source) and the app data folder above.
 
 If you deleted the folder first, remove the startup entry by hand: the `ACTCompanion` value under
 `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` (Windows), `~/Library/LaunchAgents/com.actcompanion.agent.plist` (macOS),
@@ -117,7 +118,7 @@ To build the Windows .exe (on Windows):
 
 ```sh
 .venv\Scripts\pip install -e ".[build]"
-.venv\Scripts\python packaging\build_exe.py     # writes dist\ACT Companion.exe
+.venv\Scripts\python packaging\build_exe.py     # writes dist\ACT-Companion.exe
 ```
 
 | File | Purpose |
