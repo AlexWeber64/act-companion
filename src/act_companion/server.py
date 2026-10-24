@@ -35,6 +35,8 @@ WATCHER = watcher.Watcher()
 STOP = threading.Event()
 SESSION_KEY = None
 HTTPD = None
+# Set by the desktop shell (desktop.py) so the API can show its window or quit the whole app.
+UI = {"show": None, "quit": None}
 
 
 def cached(key, fn):
@@ -79,7 +81,7 @@ def r_ping(m, q):
 
 def r_status(m, q):
     s = config.load_settings()
-    out = {"version": __version__, "settings": s, "watcher": WATCHER.status,
+    out = {"version": __version__, "settings": s, "watcher": WATCHER.status, "desktop": UI["show"] is not None,
            "autostart": {"supported": autostart.supported(), "enabled": autostart.is_enabled()},
            "logged_in": False, "user": None}
     if not moodle.load_token():
@@ -300,7 +302,15 @@ def p_autostart(body):
 
 
 def p_quit(body):
-    threading.Thread(target=shutdown, daemon=True).start()
+    threading.Thread(target=UI["quit"] or shutdown, daemon=True).start()
+    return {"ok": True}
+
+
+def p_show(body):
+    """A second launch of the app asks the running one to bring its window to the front."""
+    if not UI["show"]:
+        return {"ok": False}
+    threading.Thread(target=UI["show"], daemon=True).start()
     return {"ok": True}
 
 
@@ -308,7 +318,7 @@ POST_ROUTES = {"/api/login": p_login, "/api/logout": p_logout, "/api/settings": 
                "/api/test-notification": p_test, "/api/check-now": p_check,
                "/api/autostart": p_autostart, "/api/quit": p_quit, "/api/notifications/read": p_mark_read,
                "/api/notification/read": p_mark_one_read,
-               "/api/refresh": p_refresh}
+               "/api/refresh": p_refresh, "/api/show": p_show}
 
 
 # ---- HTTP handler -------------------------------------------------------------------------------
@@ -463,8 +473,8 @@ def app_url():
     return f"http://{config.HOST}:{config.PORT}/?key={config.session_key()}"
 
 
-def serve(on_ready=None):
-    """Run the dashboard and the background watcher until quit. Returns False if the port is taken."""
+def start():
+    """Bind the port and start the background watcher. Returns False if the port is taken."""
     global SESSION_KEY, HTTPD
     config.ensure_dir()
     SESSION_KEY = config.session_key()
@@ -473,6 +483,21 @@ def serve(on_ready=None):
     except OSError:
         return False
     threading.Thread(target=WATCHER.run_forever, args=(STOP,), daemon=True, name="watcher").start()
+    return True
+
+
+def start_background():
+    """Start the dashboard server on its own thread (used by the app window). Returns False if the port is taken."""
+    if not start():
+        return False
+    threading.Thread(target=HTTPD.serve_forever, daemon=True, name="http").start()
+    return True
+
+
+def serve(on_ready=None):
+    """Run the dashboard and the background watcher until quit (browser mode). Returns False if the port is taken."""
+    if not start():
+        return False
     if on_ready:
         on_ready()
     try:

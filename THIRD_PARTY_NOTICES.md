@@ -40,6 +40,31 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
+## Libraries bundled in the Windows .exe
+
+`ACT-Companion.exe` is built with PyInstaller and contains a Python runtime plus these packages, each under its own
+license (versions as of the latest build):
+
+| Package | License |
+|---|---|
+| Python | PSF License |
+| pywebview | BSD 3-Clause |
+| pythonnet, clr_loader | MIT |
+| pystray | LGPL-3.0 (see below) |
+| Pillow | MIT-CMU |
+| requests | Apache-2.0 |
+| certifi | MPL-2.0 |
+| urllib3, charset-normalizer, keyring, platformdirs, bottle, proxy_tools, jaraco.*, more-itertools, six | MIT |
+| idna, pycparser, pywin32-ctypes | BSD 3-Clause |
+| cffi | MIT-0 |
+| typing_extensions | PSF-2.0 |
+
+pystray is used unmodified under the GNU Lesser General Public License v3. Its source is at
+https://github.com/moses-palmer/pystray. Because ACT Companion's own source and build script (`packaging/build_exe.py`)
+are public, you can rebuild the .exe with any other version of pystray.
+
+The app window uses Microsoft Edge WebView2, which is part of Windows and is not bundled.
+
 ## Design
 
 The UI design (`companion.css`, `icons.svg`, `icon.svg`, `theme.js`, and the notes in `docs/DESIGN.md`) was made with

@@ -32,10 +32,14 @@ It runs on your own computer and signs in with your own account, the same way th
 2. Put it somewhere permanent, for example a folder in Documents, and double-click it.
 3. Windows may say **"Windows protected your PC"**, because the app is not signed with a paid code-signing certificate.
    Click **More info**, then **Run anyway**. You only need to do this once.
-4. Your browser opens ACT Companion. Sign in, then turn on **Settings > Start when I log in to this computer**.
+4. ACT Companion opens in its own window. Sign in, then turn on **Settings > Start when I log in to this computer**.
 
-To open it again later, double-click the .exe again. If you move the .exe, open it once from its new place so start at
-login follows it.
+Closing the window keeps ACT Companion running in the system tray (the icons by the clock), so alerts keep arriving.
+Click the tray icon or double-click the .exe to open it again; right-click the tray icon and choose **Quit** to stop it.
+If you move the .exe, open it once from its new place so start at login follows it.
+
+Course files you open are saved to **Downloads > ACT Companion** and open in their usual app. Code and programs
+(such as `.py` or `.exe` files) are only saved and shown in their folder, never run.
 
 ## Install from source
 
@@ -54,11 +58,13 @@ Then install and start it:
 | Windows | `.venv\Scripts\pip install -e .` | `.venv\Scripts\act-companion` |
 | macOS / Linux | `.venv/bin/pip install -e .` | `.venv/bin/act-companion` |
 
-Your browser opens ACT Companion. Sign in with your activity.act.edu username and password, then open **Settings** to pick
-your alerts and turn on **Start when I log in to this computer** so alerts keep arriving after a restart.
+ACT Companion opens in its own window (on Windows and macOS; on Linux, and with `act-companion --browser`, it uses your
+web browser instead). Sign in with your activity.act.edu username and password, then open **Settings** to pick your alerts
+and turn on **Start when I log in to this computer** so alerts keep arriving after a restart.
 
-Alerts only arrive while ACT Companion is running. Closing the browser tab does not stop it; use **Settings > Quit** for that.
-Running `act-companion` again while it is already running just reopens the dashboard.
+Alerts only arrive while ACT Companion is running. Closing the window (or browser tab) does not stop it; on Windows it stays
+in the system tray. Use **Settings > Quit** or the tray icon's **Quit** to stop it. Running `act-companion` again while it
+is already running brings the window back.
 
 The code is mirrored at [github.com/Cyverno/act-companion](https://github.com/Cyverno/act-companion) and
 [gitlab.com/AlexWeber64/act-companion](https://gitlab.com/AlexWeber64/act-companion).
@@ -110,6 +116,7 @@ or `~/.config/autostart/act-companion.desktop` (Linux).
 ```sh
 act-companion --check               # run one round of checks in the foreground
 act-companion --test-notification   # show a test alert
+act-companion --browser             # use your browser instead of the app window
 ```
 
 There is no build step for development. The UI is plain HTML, CSS and JavaScript, served by the Python standard library.
@@ -128,6 +135,7 @@ To build the Windows .exe (on Windows):
 | `src/act_companion/notify.py` | Desktop alerts per OS |
 | `src/act_companion/autostart.py` | Start at login per OS |
 | `src/act_companion/server.py` | Local web server, JSON API and file proxy |
+| `src/act_companion/desktop.py` | The app window (pywebview, Edge WebView2 on Windows) and tray icon |
 | `src/act_companion/static/app.js` | The dashboard UI (rendering, routing, interactions) |
 | `src/act_companion/static/companion.css` | The design system and screen styles, exactly as exported from the design. Do not edit by hand; replace it with a new export |
 | `src/act_companion/static/app.css` | Small runtime additions the design export does not cover |

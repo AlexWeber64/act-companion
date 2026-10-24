@@ -300,6 +300,8 @@ async function boot() {
   refreshUnread();
   getDeadlines().then(renderCounts).catch(() => {});
   route();
+  // The first background check usually finishes a few seconds after startup; update the sidebar once it has.
+  setTimeout(async () => { try { S.status.watcher = (await api("/status")).watcher; renderCounts(); } catch (e) { /* next minute */ } }, 12000);
 }
 
 function fatal(e) {
@@ -439,7 +441,7 @@ function courseRow(c) {
 function recentBlock(r, title, withCourse) {
   if (!r || !r.recent || !r.recent.length) return "";
   return `<div class="block"><div class="block-head"><h2 class="block-title">${esc(title)}</h2><span class="block-link muted">checked ${esc(r.checked ? relTime(r.checked) : "not yet")}</span></div>
-    ${r.recent.slice(0, 6).map((i) => `<a class="row note-row" href="${esc(i.fileurl || i.url)}" target="_blank" rel="noopener"><span class="dot"></span>
+    ${r.recent.slice(0, 6).map((i) => `<a class="row note-row" href="${esc(i.fileurl || i.url)}" target="_blank" rel="noopener"${i.fileurl ? ` data-download="${esc(i.label)}"` : ""}><span class="dot"></span>
       <span>${withCourse ? `<span class="code ${cc(i.course)}">${esc(shortName(courseById(i.course)))}</span> ` : ""}${esc(i.title)}: ${esc(i.label)}</span><time>${esc(relTime(i.detected))}</time></a>`).join("")}</div>`;
 }
 const sigOf = (r) => ((r && r.recent) || []).map((i) => i.detected + i.label).join("|");
@@ -848,7 +850,7 @@ async function discussionPage(t, cid, fid, did) {
     if ((p.attachments || []).length) {
       const att = document.createElement("div");
       att.className = "attachments";
-      att.innerHTML = p.attachments.map((x) => `<a class="attachment" href="${esc(x.fileurl)}" target="_blank" rel="noopener">${ic("file", "icon-sm")}${esc(x.filename)}${x.filesize ? `<span class="muted">${fmtSize(x.filesize)}</span>` : ""}</a>`).join("");
+      att.innerHTML = p.attachments.map((x) => `<a class="attachment" href="${esc(x.fileurl)}" target="_blank" rel="noopener" data-download="${esc(x.filename)}">${ic("file", "icon-sm")}${esc(x.filename)}${x.filesize ? `<span class="muted">${fmtSize(x.filesize)}</span>` : ""}</a>`).join("");
       a.append(att);
     }
     return a;
@@ -1048,7 +1050,7 @@ async function settingsPage(t, q) {
 
   <div class="block"><div class="block-head"><h2 class="block-title">This computer</h2></div>
     ${S.status.autostart.supported ? `<div class="setting"><div><div class="setting-title">Start when I log in to this computer</div><div class="setting-desc">Alerts only arrive while ACT Companion is running.</div></div>${toggle("data-autostart", S.status.autostart.enabled, "Start at login")}</div>` : ""}
-    <div class="setting"><div><div class="setting-title">Quit ACT Companion</div><div class="setting-desc">Closing the tab keeps it running. Quitting stops alerts until you open it again. Version ${esc(S.status.version)}.</div></div>
+    <div class="setting"><div><div class="setting-title">Quit ACT Companion</div><div class="setting-desc">${S.status.desktop ? "Closing the window keeps it running in the system tray." : "Closing the tab keeps it running."} Quitting stops alerts until you open it again. Version ${esc(S.status.version)}.</div></div>
       <button class="btn btn-danger" type="button" data-action="quit">${ic("power", "icon-sm")}Quit</button></div></div>`);
   if (q.focus === "courses") $("#courses-block").scrollIntoView({block: "start"});
 }
@@ -1311,7 +1313,27 @@ function activatePalette(i) {
   if (!it || !it.href) return;
   closePalette(false);
   if (it.href.startsWith("#")) location.hash = it.href;
+  else if (inApp()) openInApp(it.href, "");
   else window.open(it.href, "_blank", "noopener");
+}
+
+// ---- app window ----------------------------------------------------------------------------------
+
+// Inside the app window there is no browser tab to open: web links go to the system browser, and course files
+// go to the app, which saves them to Downloads and opens them (or shows them in their folder if unsafe to open).
+const inApp = () => !!(window.pywebview && window.pywebview.api);
+async function openInApp(href, filename) {
+  if (href.startsWith("/api/file?")) {
+    const label = filename || "file";
+    toast(`Downloading ${label}`, {icon: "download"});
+    try {
+      const r = await window.pywebview.api.open_file(href, filename || "");
+      if (!r.ok) toast(`Couldn't download ${label}. ${r.error || ""}`, {error: true});
+      else if (!r.opened) toast(`Saved ${r.name} to Downloads > ACT Companion`);
+    } catch (e) { toast(`Couldn't download ${label}.`, {error: true}); }
+    return;
+  }
+  if (/^https?:/i.test(href)) window.pywebview.api.open_external(href);
 }
 
 // ---- events ------------------------------------------------------------------------------------
@@ -1356,6 +1378,11 @@ const ACTIONS = {
 };
 
 document.addEventListener("click", (ev) => {
+  const link = ev.target.closest("a[href]");
+  if (link && inApp() && (link.target === "_blank" || link.hasAttribute("download"))) {
+    ev.preventDefault();
+    openInApp(link.getAttribute("href"), link.dataset.download || "");
+  }
   const a = ev.target.closest("[data-action]");
   if (a) {
     if (a.dataset.action === "palette-bg") { if (ev.target === a) closePalette(); return; }
@@ -1375,7 +1402,7 @@ document.addEventListener("click", (ev) => {
   const item = ev.target.closest(".palette-item");
   if (item) { activatePalette(Number(item.dataset.i)); return; }
   const dl = ev.target.closest("[data-download]");
-  if (dl) toast(`Downloading ${dl.dataset.download}`, {icon: "download"});
+  if (dl && !inApp()) toast(`Downloading ${dl.dataset.download}`, {icon: "download"});
   const note = ev.target.closest("[data-note]");
   if (note) { // opening a notification marks it read
     const id = Number(note.dataset.note);

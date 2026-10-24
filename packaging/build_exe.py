@@ -52,6 +52,8 @@ def main():
     cmd = [sys.executable, "-m", "PyInstaller", "--noconfirm", "--clean", "--onefile", "--windowed",
            "--name", NAME, "--icon", str(icon), "--version-file", str(vfile),
            "--paths", str(ROOT / "src"),
+           # pywebview's Edge WebView2 backend and pystray's Windows backend are imported at runtime by name.
+           "--collect-all", "webview", "--hidden-import", "pystray._win32", "--hidden-import", "clr",
            "--add-data", f"{STATIC};act_companion/static",
            "--distpath", str(DIST), "--workpath", str(BUILD / "pyinstaller"), "--specpath", str(BUILD),
            str(Path(__file__).parent / "launcher.py")]

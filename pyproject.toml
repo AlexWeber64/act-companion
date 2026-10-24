@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "act-companion"
-version = "0.1.0"
+version = "0.2.0"
 description = "Unofficial desktop dashboard and notifier for activity.act.edu (Moodle)"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -13,6 +13,10 @@ dependencies = [
     "requests>=2.31",
     "keyring>=24",
     "platformdirs>=4",
+    # The app window (Edge WebView2 on Windows) and tray icon. Elsewhere it falls back to the browser.
+    "pywebview>=6; sys_platform == 'win32' or sys_platform == 'darwin'",
+    "pystray>=0.19; sys_platform == 'win32'",
+    "pillow>=10; sys_platform == 'win32'",
 ]
 
 [project.optional-dependencies]
