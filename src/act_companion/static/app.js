@@ -5,7 +5,9 @@
 
 const BASE = "https://activity.act.edu";
 const onAndroid = !!window.ACTAndroid; // the Android app's Java bridge (android/)
-const onWeb = !!window.ACTWeb; // the web app (web/), which answers /api/* in the page instead of a local server
+// web/web.js answers /api/* in the page in the web app and the Android app; onWeb is the web app (no alerts there).
+const inPageApi = !!window.ACTWeb;
+const onWeb = inPageApi && !onAndroid;
 const THEMES = [["system", "System"], ["nocturne", "Nocturne"], ["graphite", "Graphite"], ["daylight", "Daylight"], ["paper", "Paper"]];
 const COLOR_NAMES = ["Blue", "Coral", "Green", "Amber", "Teal", "Pink", "Lime", "Orange"];
 
@@ -69,7 +71,7 @@ const stale = (t) => t !== routeToken;
 
 async function api(path, body) {
   const opt = body === undefined ? {} : {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body)};
-  const r = await (onWeb ? window.ACTWeb.fetch : fetch)("/api" + path, opt);
+  const r = await (inPageApi ? window.ACTWeb.fetch : fetch)("/api" + path, opt);
   let j = {};
   try { j = await r.json(); } catch (e) { /* non-JSON error page */ }
   if (r.status === 401) {
@@ -343,7 +345,7 @@ function loginPage(expired) {
     <p class="privacy">Your password goes only to activity.act.edu, once, to get an access token. It is never stored.</p>
     <div class="unofficial"><strong>Unofficial, not affiliated with the school.</strong> ACT Companion is a student project and is not endorsed or supported by the school.</div>
   </form></div></div><div class="toasts" id="toasts" aria-live="polite"></div>`;
-  (onWeb ? window.ACTWeb.fetch : fetch)("/api/ping").then((r) => r.json()).then((p) => { $("#version").textContent = `Version ${p.version} · Open source, MIT license`; }).catch(() => {});
+  (inPageApi ? window.ACTWeb.fetch : fetch)("/api/ping").then((r) => r.json()).then((p) => { $("#version").textContent = `Version ${p.version} · Open source, MIT license`; }).catch(() => {});
   $("#u").focus();
   $("#login").addEventListener("submit", async (ev) => {
     ev.preventDefault();
@@ -1356,7 +1358,8 @@ if (onAndroid) {
   requestAnimationFrame(syncSystemBars);
 }
 async function openInApp(href, filename) {
-  if (href.startsWith("/api/file?")) {
+  // Course files: the desktop's local proxy, or on Android a Moodle file URL that web.js gave the token.
+  if (href.startsWith("/api/file?") || (onAndroid && href.startsWith(BASE + "/webservice/pluginfile.php/"))) {
     const label = filename || "file";
     toast(`Downloading ${label}`, {icon: "download"});
     try {

@@ -1,4 +1,4 @@
-"""Desktop notifications on Windows, macOS and Linux without extra dependencies, and Android notifications in the app."""
+"""Desktop notifications on Windows, macOS and Linux without extra dependencies."""
 import os
 import shutil
 import subprocess
@@ -57,15 +57,8 @@ def _linux(title, body, url):
     return _run([ns, f"--app-name={APP_NAME}", title, body])
 
 
-def _android(title, body, url):
-    from java import jclass  # Chaquopy's bridge to the app's Kotlin code (android/)
-    return bool(jclass("io.github.alexweber64.actcompanion.Shell").notify(title, body, url))
-
-
 def send(title, body, url=None):
     url = url or config.BASE
-    if sys.platform == "android":
-        return _android(title, body, url)
     try:
         if sys.platform == "win32":
             return _windows(title, body, url)

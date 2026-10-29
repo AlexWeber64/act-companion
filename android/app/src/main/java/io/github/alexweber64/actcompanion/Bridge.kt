@@ -10,6 +10,7 @@ import android.provider.MediaStore
 import android.provider.Settings
 import android.webkit.JavascriptInterface
 import android.webkit.MimeTypeMap
+import org.json.JSONArray
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
@@ -17,8 +18,9 @@ import java.net.URLDecoder
 import kotlin.concurrent.thread
 
 /**
- * The page's window.ACTAndroid. app.js wraps it in the same API as the desktop window (desktop.py's Bridge):
- * web links open in the browser, course files are saved to Downloads/ACT Companion and opened.
+ * The page's window.ACTAndroid. web.js keeps the token and settings here (so the background checks can use them) and
+ * reads the checks' status; app.js wraps the file and link methods in the same API as the desktop window: web links
+ * open in the browser, course files are saved to Downloads/ACT Companion and opened.
  */
 class Bridge(private val activity: MainActivity) {
     companion object {
@@ -26,9 +28,66 @@ class Bridge(private val activity: MainActivity) {
         val SAFE_TO_OPEN = setOf("pdf", "doc", "docx", "odt", "rtf", "txt", "md", "ppt", "pptx", "odp", "key", "xls", "xlsx",
             "ods", "csv", "png", "jpg", "jpeg", "gif", "webp", "bmp", "mp3", "mp4", "m4a", "mov", "wav", "zip", "rar", "7z")
         private const val FOLDER = "ACT Companion"
+        private const val FILES = "${Moodle.BASE}/webservice/pluginfile.php/"
     }
 
-    private val key by lazy { Shell.python().callAttr("session_key").toString() }
+    private val ctx = activity.applicationContext
+
+    // ---- storage and checks, for web.js ---------------------------------------------------------------
+
+    @JavascriptInterface
+    fun getItem(key: String): String? = if (key in Store.PAGE_KEYS) Store.get(ctx, key) else null
+
+    @JavascriptInterface
+    fun setItem(key: String, value: String?) {
+        if (key in Store.PAGE_KEYS) Store.set(ctx, key, value)
+    }
+
+    /** The last check's status for Settings, like the desktop app's watcher status. */
+    @JavascriptInterface
+    fun watcherStatus(): String {
+        val s = Store.status(ctx)
+        fun v(k: String) = if (s.has(k)) s.get(k) else JSONObject.NULL
+        return JSONObject().put("last_run", v("last_run")).put("last_ok", v("last_ok")).put("last_error", v("last_error"))
+            .put("next_run", Shell.nextRun() ?: JSONObject.NULL).toString()
+    }
+
+    /** Items the course-change check found, optionally for one course (the desktop app's /api/recent). */
+    @JavascriptInterface
+    fun recent(course: String): String {
+        val st = Store.state(ctx)
+        val all = st.optJSONArray("recent") ?: JSONArray()
+        val list = JSONArray()
+        for (i in 0 until all.length()) {
+            val r = all.getJSONObject(i)
+            if (course.isEmpty() || r.optInt("course").toString() == course) list.put(r)
+        }
+        val checked = st.optJSONObject("checked") ?: JSONObject()
+        val at: Any = if (course.isNotEmpty()) checked.opt(course) ?: JSONObject.NULL
+            else checked.keys().asSequence().map { checked.getDouble(it) }.maxOrNull() ?: JSONObject.NULL
+        return JSONObject().put("recent", list).put("checked", at).toString()
+    }
+
+    @JavascriptInterface
+    fun signedIn() = Shell.checkNow()
+
+    /** Signing out deletes this account's alert history, as on the desktop. */
+    @JavascriptInterface
+    fun signedOut() = Store.clearState(ctx)
+
+    @JavascriptInterface
+    fun settingsChanged() = Shell.schedule()
+
+    @JavascriptInterface
+    fun checkNow() = Shell.checkNow()
+
+    @JavascriptInterface
+    fun testNotification(): Boolean = Shell.notify("ACT Companion", "Test notification. If you can read this, alerts work.", null)
+
+    @JavascriptInterface
+    fun quit() = Shell.quit()
+
+    // ---- links, files and system bars ------------------------------------------------------------------
 
     @JavascriptInterface
     fun openExternal(url: String): Boolean {
@@ -43,7 +102,7 @@ class Bridge(private val activity: MainActivity) {
             val result = try {
                 download(href, filename)
             } catch (e: Exception) {
-                JSONObject().put("ok", false).put("error", "download failed (${e.javaClass.simpleName})")
+                failure("download failed (${e.javaClass.simpleName})")
             }
             activity.runOnUiThread {
                 activity.web.evaluateJavascript("window.ACTAndroidDone(${JSONObject.quote(callback)}, $result)", null)
@@ -65,15 +124,16 @@ class Bridge(private val activity: MainActivity) {
 
     private fun failure(error: String) = JSONObject().put("ok", false).put("error", error)
 
+    /** href is a course file URL with the token (web.js adds it), so it only ever goes to activity.act.edu. */
     private fun download(href: String, filename: String): JSONObject {
-        if (!href.startsWith("/api/file?")) return failure("not a course file")
-        val conn = URL("http://127.0.0.1:${MainActivity.PORT}$href").openConnection() as HttpURLConnection
-        conn.setRequestProperty("Cookie", "ac_session=$key")
-        conn.connectTimeout = 10_000
+        if (!href.startsWith(FILES)) return failure("not a course file")
+        val conn = URL(href).openConnection() as HttpURLConnection
+        conn.instanceFollowRedirects = false
+        conn.connectTimeout = 30_000
         conn.readTimeout = 120_000
         try {
             if (conn.responseCode != 200) return failure("download failed (HTTP ${conn.responseCode})")
-            val name = safeName(filename.ifBlank { nameFrom(conn.getHeaderField("Content-Disposition")) })
+            val name = safeName(filename.ifBlank { nameFrom(conn.getHeaderField("Content-Disposition"), href) })
             val ext = name.substringAfterLast('.', "").lowercase()
             val mime = MimeTypeMap.getSingleton().getMimeTypeFromExtension(ext) ?: "application/octet-stream"
 
@@ -112,9 +172,10 @@ class Bridge(private val activity: MainActivity) {
         }
     }
 
-    private fun nameFrom(disposition: String?): String {
-        val m = Regex("""filename\*?=(?:UTF-8'')?"?([^";]+)""", RegexOption.IGNORE_CASE).find(disposition ?: "") ?: return "file"
-        return URLDecoder.decode(m.groupValues[1], "UTF-8")
+    private fun nameFrom(disposition: String?, href: String): String {
+        val m = Regex("""filename\*?=(?:UTF-8'')?"?([^";]+)""", RegexOption.IGNORE_CASE).find(disposition ?: "")
+        val raw = m?.groupValues?.get(1) ?: Uri.parse(href).lastPathSegment ?: "file"
+        return URLDecoder.decode(raw, "UTF-8")
     }
 
     private fun safeName(name: String): String =

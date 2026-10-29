@@ -11,21 +11,21 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.work.Constraints
 import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.ExistingWorkPolicy
 import androidx.work.NetworkType
+import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.WorkInfo
 import androidx.work.WorkManager
-import com.chaquo.python.PyObject
-import com.chaquo.python.Python
-import com.chaquo.python.android.AndroidPlatform
 import java.lang.ref.WeakReference
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 
-/** What the Python side (act_companion/android.py and notify.py) calls: alerts, scheduling and quitting. */
+/** Alerts, scheduling the background checks, and quitting. */
 object Shell {
     private const val CHANNEL = "alerts"
     private const val WORK = "checks"
-    const val SITE = "https://activity.act.edu"
+    private const val MAX_INDIVIDUAL = 4  // a bigger burst becomes one summary, as on the desktop
 
     private lateinit var app: Context
     private val ids = AtomicInteger((System.currentTimeMillis() / 1000 % 100000).toInt())
@@ -38,20 +38,12 @@ object Shell {
         app.getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
     }
 
-    /** act_companion/android.py, starting Python first if needed. Call it off the main thread. */
-    @Synchronized
-    fun python(): PyObject {
-        if (!Python.isStarted()) Python.start(AndroidPlatform(app))
-        return Python.getInstance().getModule("act_companion.android")
-    }
-
     /** Shows an alert. Tapping it opens the item on activity.act.edu. False if notifications are turned off. */
-    @JvmStatic
     fun notify(title: String, body: String, url: String?): Boolean {
         val manager = NotificationManagerCompat.from(app)
         if (!manager.areNotificationsEnabled()) return false
         val id = ids.incrementAndGet()
-        val open = Intent(Intent.ACTION_VIEW, Uri.parse(url ?: SITE)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        val open = Intent(Intent.ACTION_VIEW, Uri.parse(url ?: Moodle.BASE)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         val notification = NotificationCompat.Builder(app, CHANNEL)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(title)
@@ -68,17 +60,38 @@ object Shell {
         }
     }
 
+    fun notifyBatch(alerts: List<Checks.Alert>) {
+        if (alerts.size > MAX_INDIVIDUAL) {
+            val preview = alerts.take(3).joinToString("; ") { it.body }
+            notify("ACT Companion: ${alerts.size} updates", "$preview; and more", Moodle.BASE)
+            return
+        }
+        for (a in alerts) notify(a.title, a.body, a.url)
+    }
+
+    private val network = Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build()
+
     /** (Re)schedules the background checks. Android runs them at most every 15 minutes, and only with a network. */
-    @JvmStatic
-    fun schedule(minutes: Int) {
-        val request = PeriodicWorkRequestBuilder<CheckWorker>(minutes.toLong(), TimeUnit.MINUTES)
-            .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
+    fun schedule() {
+        val request = PeriodicWorkRequestBuilder<CheckWorker>(Store.intervalMinutes(app).toLong(), TimeUnit.MINUTES)
+            .setConstraints(network)
             .build()
         WorkManager.getInstance(app).enqueueUniquePeriodicWork(WORK, ExistingPeriodicWorkPolicy.UPDATE, request)
     }
 
+    /** One check right away (sign in, Check now). */
+    fun checkNow() {
+        val request = OneTimeWorkRequestBuilder<CheckWorker>().setConstraints(network).build()
+        WorkManager.getInstance(app).enqueueUniqueWork("check-now", ExistingWorkPolicy.KEEP, request)
+    }
+
+    /** When the next scheduled check runs, in seconds, or null if none is scheduled. */
+    fun nextRun(): Double? = runCatching {
+        WorkManager.getInstance(app).getWorkInfosForUniqueWork(WORK).get()
+            .firstOrNull { it.state == WorkInfo.State.ENQUEUED }?.nextScheduleTimeMillis?.let { it / 1000.0 }
+    }.getOrNull()
+
     /** Settings > Quit: stop the background checks until the app is opened again, and close it. */
-    @JvmStatic
     fun quit() {
         WorkManager.getInstance(app).cancelUniqueWork(WORK)
         activity.get()?.let { a -> a.runOnUiThread { a.finishAndRemoveTask() } }

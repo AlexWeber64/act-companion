@@ -167,7 +167,7 @@ release with both builds attached, ready to review and publish.
 | `src/act_companion/static/companion.css` | The design system and screen styles, exactly as exported from the design. Do not edit by hand; replace it with a new export |
 | `src/act_companion/static/app.css` | Small runtime additions the design export does not cover |
 | `web/` | The web app for iPhone and browsers: `web.js` answers the UI's API calls in the page, straight from activity.act.edu (`python web/build.py` builds it) |
-| `src/act_companion/android.py`, `android/` | The Android app, which runs this same package (see [android/README.md](android/README.md)) |
+| `android/` | The Android app: the web app in a WebView, plus background checks in Kotlin that port `watcher.py` (see [android/README.md](android/README.md)) |
 
 `docs/DESIGN.md` describes how every screen is meant to behave.
 

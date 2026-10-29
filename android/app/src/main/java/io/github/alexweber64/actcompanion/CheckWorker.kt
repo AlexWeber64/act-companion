@@ -5,14 +5,14 @@ import android.util.Log
 import androidx.work.Worker
 import androidx.work.WorkerParameters
 
-/** One scheduled round of checks (deadlines, reminders, grades), run by WorkManager even when the app is closed. */
+/** One round of checks (deadlines, reminders, grades), run by WorkManager even when the app is closed. */
 class CheckWorker(context: Context, params: WorkerParameters) : Worker(context, params) {
     override fun doWork(): Result {
         try {
-            Shell.python().callAttr("check")
+            Checks.run(applicationContext)
         } catch (e: Exception) {
             Log.e("ACTCompanion", "check crashed", e)
         }
-        return Result.success()  // a failed check is logged and shown in Settings; the next one runs on schedule
+        return Result.success()  // a failed check is shown in Settings; the next one runs on schedule
     }
 }

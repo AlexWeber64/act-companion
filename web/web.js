@@ -1,6 +1,8 @@
 // ACT Companion as a web app (iPhone home screen, or any browser). There is no local server here: this file answers the
 // UI's /api/* requests in the page itself by calling activity.act.edu directly, the way the official Moodle app does.
 // It mirrors src/act_companion/server.py. The token stays in this browser's storage; no other server ever sees it.
+// The Android app uses this file too: there window.ACTAndroid keeps the token and settings in the app's private storage,
+// where its background checks (Checks.kt) read them, and reports their status.
 "use strict";
 (() => {
   const VERSION = "__VERSION__"; // filled in by web/build.py
@@ -15,7 +17,8 @@
 
   // ---- storage ------------------------------------------------------------------------------------
 
-  const store = {
+  const android = window.ACTAndroid || null;
+  const store = android ? {get: (k) => android.getItem(k), set: (k, v) => android.setItem(k, v)} : {
     get(k) { try { return localStorage.getItem("ac." + k); } catch (e) { return null; } },
     set(k, v) { try { v === null ? localStorage.removeItem("ac." + k) : localStorage.setItem("ac." + k, v); } catch (e) { /* private mode */ } },
   };
@@ -127,7 +130,7 @@
   // ---- routes (the same as server.py) -----------------------------------------------------------
 
   async function status() {
-    const out = {version: VERSION, settings: loadSettings(), watcher: null, desktop: false,
+    const out = {version: VERSION, settings: loadSettings(), watcher: android ? JSON.parse(android.watcherStatus()) : null, desktop: false,
       autostart: {supported: false, enabled: false}, logged_in: false, user: null};
     if (!token()) return out;
     try {
@@ -149,7 +152,8 @@
       {timesortfrom: Math.floor(Date.now() / 1000) - 7 * 86400, limitnum: 50}))],
     [/^\/api\/grades$/, () => cached("grades", async () => call("gradereport_overview_get_course_grades", {userid: await uid()}))],
     [/^\/api\/grades\/(\d+)$/, (m) => cached("gi" + m[1], async () => call("gradereport_user_get_grade_items", {courseid: +m[1], userid: await uid()}))],
-    [/^\/api\/recent$/, () => ({recent: [], checked: null})], // course-change watching needs the desktop or Android app
+    // Course-change watching runs only in the desktop and Android apps.
+    [/^\/api\/recent$/, (m, q) => (android ? JSON.parse(android.recent(q.get("course") || "")) : {recent: [], checked: null})],
     [/^\/api\/course\/(\d+)$/, (m, q) => {
       if (q.has("fresh")) cache.delete("c" + m[1]);
       return cached("c" + m[1], () => call("core_course_get_contents", {courseid: +m[1]}));
@@ -184,11 +188,13 @@
       if (!data.token) throw new HttpError(400, data.error || "login failed");
       store.set("token", data.token);
       cache = new Map();
+      if (android) android.signedIn();
       return status();
     },
     "/api/logout": () => {
       store.set("token", null);
       cache = new Map();
+      if (android) android.signedOut();
       return {ok: true};
     },
     "/api/settings": (body) => {
@@ -208,11 +214,13 @@
       }
       if ("grades_show_value" in body) s.grades_show_value = !!body.grades_show_value;
       store.set("settings", JSON.stringify(s));
+      if (android) android.settingsChanged();
       return s;
     },
     "/api/refresh": () => { cache = new Map(); return {ok: true}; },
-    "/api/check-now": () => ({ok: true}),
-    "/api/test-notification": () => ({ok: false}),
+    "/api/check-now": () => { if (android) android.checkNow(); return {ok: true}; },
+    "/api/test-notification": () => ({ok: android ? android.testNotification() : false}),
+    "/api/quit": () => { if (android) android.quit(); return {ok: true}; },
     "/api/notifications/read": async () => {
       await call("core_message_mark_all_notifications_as_read", {useridto: await uid()});
       cache.delete("unread");
@@ -261,5 +269,5 @@
     if (a && a.origin !== location.origin) { a.target = "_blank"; a.rel = "noopener noreferrer"; }
   }, true);
 
-  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => { /* works without it */ });
+  if (!android && "serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => { /* works without it */ });
 })();

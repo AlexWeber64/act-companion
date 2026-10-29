@@ -9,10 +9,10 @@ import android.graphics.Color
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
-import android.text.Html
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewTreeObserver
 import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.FrameLayout
@@ -24,18 +24,22 @@ import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.webkit.WebViewAssetLoader
 import java.lang.ref.WeakReference
-import kotlin.concurrent.thread
 
-/** The app's one screen: the dashboard from the Python server, in a WebView. */
+/**
+ * The app's one screen: the web app (web/, built into the APK's assets) in a WebView. web.js talks to activity.act.edu
+ * directly, so the screen does not wait for anything to start.
+ */
 class MainActivity : ComponentActivity() {
     companion object {
-        const val PORT = 8765  // config.PORT
+        private const val HOST = "appassets.androidplatform.net"  // WebViewAssetLoader's origin for the app's own files
+        private const val START = "https://$HOST/assets/web/index.html"
     }
 
     lateinit var web: WebView
     private lateinit var root: FrameLayout
-    private var ready = false  // keeps the launch screen up until the dashboard has loaded
+    private var ready = false  // keeps the launch screen up until the page has loaded
 
     private val back = object : OnBackPressedCallback(false) {
         override fun handleOnBackPressed() = web.goBack()
@@ -48,6 +52,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         Shell.activity = WeakReference(this)
         val bg = ContextCompat.getColor(this, R.color.bg)
+        val assets = WebViewAssetLoader.Builder().addPathHandler("/assets/", WebViewAssetLoader.AssetsPathHandler(this)).build()
 
         WebView.setWebContentsDebuggingEnabled(BuildConfig.DEBUG)
         web = WebView(this).apply {
@@ -58,10 +63,12 @@ class MainActivity : ComponentActivity() {
             settings.allowContentAccess = false
             addJavascriptInterface(Bridge(this@MainActivity), "ACTAndroid")
             webViewClient = object : WebViewClient() {
+                override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? =
+                    assets.shouldInterceptRequest(request.url)
+
                 override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
-                    val u = request.url
-                    if (u.scheme == "http" && u.host == "127.0.0.1" && u.port == PORT) return false
-                    openExternal(u)  // Moodle pages and other links open in the browser
+                    if (request.url.host == HOST) return false
+                    openExternal(request.url)  // Moodle pages and other links open in the browser
                     return true
                 }
 
@@ -70,7 +77,7 @@ class MainActivity : ComponentActivity() {
                 }
 
                 override fun onPageFinished(view: WebView, url: String?) {
-                    if (url != null && url.startsWith("http://127.0.0.1")) reveal()
+                    reveal()
                 }
             }
         }
@@ -94,24 +101,11 @@ class MainActivity : ComponentActivity() {
                 return true
             }
         })
-        root.postDelayed(::reveal, 15_000)  // never hide a problem behind the launch screen
+        root.postDelayed(::reveal, 5_000)  // never hide a problem behind the launch screen
         onBackPressedDispatcher.addCallback(this, back)
 
-        thread(name = "start") {
-            try {
-                val url = Shell.python().callAttr("start").toString()
-                Shell.schedule(Shell.python().callAttr("interval_minutes").toInt())
-                runOnUiThread { web.loadUrl(url) }
-            } catch (e: Exception) {
-                val msg = Html.escapeHtml(e.message ?: e.toString())
-                val page = "<body style='background:#161826;color:#e6e6f0;font:16px sans-serif;padding:24px'>" +
-                    "<h2>ACT Companion could not start</h2><p>$msg</p></body>"
-                runOnUiThread {
-                    web.loadDataWithBaseURL(null, page, "text/html", "utf-8", null)
-                    reveal()
-                }
-            }
-        }
+        web.loadUrl(START)
+        Shell.schedule()
 
         if (Build.VERSION.SDK_INT >= 33 &&
             checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {

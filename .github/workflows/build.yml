@@ -81,7 +81,7 @@ jobs:
           distribution: temurin
           java-version: "21"
 
-      # Chaquopy compiles the app's Python with a build Python of the same version as the app's (3.14).
+      # The build runs web/build.py to put the web app in the APK.
       - uses: actions/setup-python@v7
         with:
           python-version: "3.14"

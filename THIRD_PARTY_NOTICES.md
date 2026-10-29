@@ -65,6 +65,12 @@ are public, you can rebuild the .exe with any other version of pystray.
 
 The app window uses Microsoft Edge WebView2, which is part of Windows and is not bundled.
 
+## Libraries bundled in the Android app
+
+`ACT-Companion.apk` contains the Kotlin standard library and these AndroidX libraries, all under the Apache License 2.0:
+core, activity, work (WorkManager) and webkit, with their AndroidX dependencies. Pages are shown by Android System
+WebView, which is part of Android and is not bundled.
+
 ## Design
 
 The UI design (`companion.css`, `icons.svg`, `icon.svg`, `theme.js`, and the notes in `docs/DESIGN.md`) was made with

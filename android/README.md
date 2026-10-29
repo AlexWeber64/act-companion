@@ -1,23 +1,28 @@
 # ACT Companion for Android
 
-The Android app runs the same Python package as the desktop app (`../src/act_companion`) inside the app, using
-[Chaquopy](https://chaquo.com/chaquopy/), and shows the same web UI in a WebView. The Kotlin code only adds what a phone
-needs:
+The Android app shows the web app (`../web`, the same UI as the desktop app) in a WebView. `web.js` talks to
+activity.act.edu straight from the page, so the app opens without starting anything first. The Kotlin code adds what a
+phone needs:
 
 | File | Purpose |
 |---|---|
-| `MainActivity.kt` | The screen: starts the local server and shows the dashboard; other links open in the browser |
-| `Bridge.kt` | `window.ACTAndroid` for the page: saves course files to Downloads > ACT Companion and opens them, colors the system bars |
-| `Shell.kt` | What Python calls (`act_companion/android.py`, `notify.py`): notifications, scheduling the checks, quitting |
-| `CheckWorker.kt` | The background check, run by WorkManager every 15 minutes or more, also after a restart |
+| `MainActivity.kt` | The screen: loads the web app from the APK's assets; other links open in the browser |
+| `Bridge.kt` | `window.ACTAndroid` for the page: keeps the token and settings in private storage, reports the checks' status, saves course files to Downloads > ACT Companion and opens them, colors the system bars |
+| `Checks.kt` | The background checks for alerts (deadlines, reminders, grades, optional course changes), a port of `src/act_companion/watcher.py` with the same rules and the same `state.json` layout |
+| `Moodle.kt` | The Moodle Web Services client the checks use, a port of `src/act_companion/moodle.py` |
+| `Store.kt` | Private storage: token, settings (same defaults as `config.py`), `state.json` and the last check's status |
+| `CheckWorker.kt`, `Shell.kt` | WorkManager runs the checks every 15 minutes or more, also after a restart; notifications and Quit |
+
+If you change how alerts work in `watcher.py`, change `Checks.kt` to match.
 
 Android runs background work at most every 15 minutes, so on Android the check frequency setting offers 15, 30 and
 60 minutes. The token is stored in the app's private storage, and backups are turned off so it never leaves the phone.
+The app has no local server and only talks to activity.act.edu, over HTTPS.
 
 ## Build
 
-You need JDK 17 or newer, the Android SDK (Android Studio installs it), and Python 3.14 on the PATH (Chaquopy compiles
-the app's Python with it).
+You need JDK 17 or newer, the Android SDK (Android Studio installs it), and Python 3 on the PATH: the build runs
+`web/build.py --app` to put the web app in the APK's assets (set `PYTHON` to use another interpreter).
 
 ```sh
 cd android
