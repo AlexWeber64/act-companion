@@ -1,9 +1,9 @@
 # ACT Companion
 
-A desktop companion for [activity.act.edu](https://activity.act.edu), the school's Moodle site. See your deadlines, grades,
+A desktop, Android and iPhone companion for [activity.act.edu](https://activity.act.edu), the school's Moodle site. See your deadlines, grades,
 course files, forums and messages in one clean dashboard, and get desktop alerts before things are due.
 
-It runs on your own computer and signs in with your own account, the same way the official Moodle mobile app does.
+It runs on your own computer or phone and signs in with your own account, the same way the official Moodle mobile app does.
 
 > **Unofficial.** ACT Companion is a student project. It is not affiliated with, endorsed by, or supported by the school.
 
@@ -40,6 +40,27 @@ If you move the .exe, open it once from its new place so start at login follows 
 
 Course files you open are saved to **Downloads > ACT Companion** and open in their usual app. Code and programs
 (such as `.py` or `.exe` files) are only saved and shown in their folder, never run.
+
+## Install on Android
+
+1. On your phone, download **[ACT-Companion.apk](https://github.com/AlexWeber64/act-companion/releases/latest/download/ACT-Companion.apk)**
+   and open it. Android asks you to allow installing apps from your browser (or Files app) the first time.
+2. Open ACT Companion, allow notifications, and sign in.
+
+Alerts keep arriving when the app is closed; Android runs the checks every 15 minutes or more. Some phones, Samsung's
+among them, pause apps you don't open often: if alerts stop, open **Settings > App settings** in ACT Companion and set
+**Battery** to **Unrestricted**. Course files are saved to **Downloads > ACT Companion**. To uninstall, long-press the
+app icon and choose **Uninstall**, which also deletes your sign-in and settings.
+
+## Use on iPhone (or in any browser)
+
+1. In Safari, open **[alexweber64.github.io/act-companion](https://alexweber64.github.io/act-companion/)**.
+2. Tap **Share**, then **Add to Home Screen**. ACT Companion opens from its icon like an app. Sign in.
+
+This is a web app: it has your deadlines, grades, course files, forums and messages, but **no alerts**, because iOS
+lets web apps do nothing while they are closed. For alerts, use the desktop or Android app. It talks to activity.act.edu
+straight from your phone; your sign-in stays on your phone and no other server sees it (GitHub only hosts the app's
+files). Signing out removes it. It updates itself when a new version is released.
 
 ## Install from source
 
@@ -83,7 +104,8 @@ Use **Settings > Send a test alert**, or run `act-companion --test-notification`
 
 - **Your password** is sent only to activity.act.edu, once, to get an access token. It is never stored.
 - **The token** lives in your system keychain (Windows Credential Manager, macOS Keychain, or Secret Service on Linux).
-  If there is no keychain, it falls back to a file only your user account can read.
+  If there is no keychain, it falls back to a file only your user account can read. On Android it is in the app's private
+  storage, which other apps cannot read, and it is left out of phone backups.
 - **No servers, analytics or telemetry.** ACT Companion only ever talks to activity.act.edu.
 - **The dashboard** listens on `127.0.0.1:8765` only, and every request needs a random key that the app hands your browser.
   Other programs, other people using the same computer, and websites cannot read your data through it.
@@ -129,9 +151,9 @@ To build the Windows .exe (on Windows):
 ```
 
 Release builds are not made by hand. The [Build workflow](.github/workflows/build.yml) builds the .exe on GitHub's
-Windows runners for every push and pull request (download it from the run's artifacts). To release, bump the version in
+Windows runners, and the Android app, for every push and pull request (download them from the run's artifacts). To release, bump the version in
 `src/act_companion/__init__.py` and `pyproject.toml`, then push a tag such as `v0.3.0`: the workflow creates a draft
-release with that build attached, ready to review and publish.
+release with both builds attached, ready to review and publish.
 
 | File | Purpose |
 |---|---|
@@ -144,6 +166,8 @@ release with that build attached, ready to review and publish.
 | `src/act_companion/static/app.js` | The dashboard UI (rendering, routing, interactions) |
 | `src/act_companion/static/companion.css` | The design system and screen styles, exactly as exported from the design. Do not edit by hand; replace it with a new export |
 | `src/act_companion/static/app.css` | Small runtime additions the design export does not cover |
+| `web/` | The web app for iPhone and browsers: `web.js` answers the UI's API calls in the page, straight from activity.act.edu (`python web/build.py` builds it) |
+| `src/act_companion/android.py`, `android/` | The Android app, which runs this same package (see [android/README.md](android/README.md)) |
 
 `docs/DESIGN.md` describes how every screen is meant to behave.
 

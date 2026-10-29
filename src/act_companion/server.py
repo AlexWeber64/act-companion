@@ -35,8 +35,9 @@ WATCHER = watcher.Watcher()
 STOP = threading.Event()
 SESSION_KEY = None
 HTTPD = None
-# Set by the desktop shell (desktop.py) so the API can show its window or quit the whole app.
-UI = {"show": None, "quit": None}
+# Set by the desktop shell (desktop.py) or the Android app (android.py) so the API can show its window, quit the whole
+# app, or reschedule background checks when the settings change.
+UI = {"show": None, "quit": None, "settings_saved": None}
 
 
 def cached(key, fn):
@@ -263,6 +264,8 @@ def p_settings(body):
     if "grades_show_value" in body:
         s["grades_show_value"] = bool(body["grades_show_value"])
     config.save_settings(s)
+    if UI["settings_saved"]:
+        UI["settings_saved"](s)
     WATCHER.wake.set()
     return s
 
@@ -473,8 +476,11 @@ def app_url():
     return f"http://{config.HOST}:{config.PORT}/?key={config.session_key()}"
 
 
-def start():
-    """Bind the port and start the background watcher. Returns False if the port is taken."""
+def start(watch=True):
+    """Bind the port and start the background watcher. Returns False if the port is taken.
+
+    watch=False (Android) runs checks only when woken, because the app schedules the regular ones itself.
+    """
     global SESSION_KEY, HTTPD
     config.ensure_dir()
     SESSION_KEY = config.session_key()
@@ -482,13 +488,14 @@ def start():
         HTTPD = ThreadingHTTPServer((config.HOST, config.PORT), Handler)
     except OSError:
         return False
-    threading.Thread(target=WATCHER.run_forever, args=(STOP,), daemon=True, name="watcher").start()
+    loop = WATCHER.run_forever if watch else WATCHER.run_on_wake
+    threading.Thread(target=loop, args=(STOP,), daemon=True, name="watcher").start()
     return True
 
 
-def start_background():
+def start_background(watch=True):
     """Start the dashboard server on its own thread (used by the app window). Returns False if the port is taken."""
-    if not start():
+    if not start(watch):
         return False
     threading.Thread(target=HTTPD.serve_forever, daemon=True, name="http").start()
     return True

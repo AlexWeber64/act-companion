@@ -1,0 +1,15 @@
+{
+  "name": "ACT Companion",
+  "short_name": "ACT Companion",
+  "description": "Unofficial dashboard for activity.act.edu: deadlines, grades, course files and messages.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#161826",
+  "theme_color": "#161826",
+  "icons": [
+    {"src": "icon-192.png", "sizes": "192x192", "type": "image/png"},
+    {"src": "icon-512.png", "sizes": "512x512", "type": "image/png"},
+    {"src": "icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}
+  ]
+}

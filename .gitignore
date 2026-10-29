@@ -15,3 +15,12 @@ site/
 cs192-list-site/
 cs192_list.json
 build_list.py
+
+# Android build output and machine-specific files
+android/.gradle/
+android/.kotlin/
+android/.idea/
+android/build/
+android/app/build/
+android/local.properties
+*.jks

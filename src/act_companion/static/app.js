@@ -4,6 +4,8 @@
    inline scripts or inline event handlers: every interaction goes through the delegated listeners at the end. */
 
 const BASE = "https://activity.act.edu";
+const onAndroid = !!window.ACTAndroid; // the Android app's Java bridge (android/)
+const onWeb = !!window.ACTWeb; // the web app (web/), which answers /api/* in the page instead of a local server
 const THEMES = [["system", "System"], ["nocturne", "Nocturne"], ["graphite", "Graphite"], ["daylight", "Daylight"], ["paper", "Paper"]];
 const COLOR_NAMES = ["Blue", "Coral", "Green", "Amber", "Teal", "Pink", "Lime", "Orange"];
 
@@ -67,7 +69,7 @@ const stale = (t) => t !== routeToken;
 
 async function api(path, body) {
   const opt = body === undefined ? {} : {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body)};
-  const r = await fetch("/api" + path, opt);
+  const r = await (onWeb ? window.ACTWeb.fetch : fetch)("/api" + path, opt);
   let j = {};
   try { j = await r.json(); } catch (e) { /* non-JSON error page */ }
   if (r.status === 401) {
@@ -328,8 +330,9 @@ function loginPage(expired) {
     <div class="auth-mark">${brand()}</div>
     <div class="auth-points"><ul>
       <li>${ic("clock")}<span>Deadlines, grades, course files and messages from activity.act.edu in one place.</span></li>
-      <li>${ic("bell")}<span>Desktop alerts before things are due and when grades are posted.</span></li>
-      <li>${ic("house")}<span>Runs on your own computer. No servers, analytics or tracking.</span></li></ul></div>
+      ${onWeb ? `<li>${ic("house")}<span>Add it to your Home Screen: in Safari, tap Share, then Add to Home Screen.</span></li>
+      <li>${ic("bell")}<span>Your password and data go only to activity.act.edu. No servers, analytics or tracking.</span></li>` : `<li>${ic("bell")}<span>${onAndroid ? "Alerts" : "Desktop alerts"} before things are due and when grades are posted.</span></li>
+      <li>${ic("house")}<span>Runs on your own ${onAndroid ? "phone" : "computer"}. No servers, analytics or tracking.</span></li>`}</ul></div>
     <p class="privacy" id="version">Open source, MIT license</p>
   </div><div class="auth-main"><form class="auth-form" id="login" novalidate>
     <header class="page-head"><h1 class="auth-title">Sign in</h1><p class="page-lede">Use your activity.act.edu username and password.</p></header>
@@ -340,7 +343,7 @@ function loginPage(expired) {
     <p class="privacy">Your password goes only to activity.act.edu, once, to get an access token. It is never stored.</p>
     <div class="unofficial"><strong>Unofficial, not affiliated with the school.</strong> ACT Companion is a student project and is not endorsed or supported by the school.</div>
   </form></div></div><div class="toasts" id="toasts" aria-live="polite"></div>`;
-  fetch("/api/ping").then((r) => r.json()).then((p) => { $("#version").textContent = `Version ${p.version} · Open source, MIT license`; }).catch(() => {});
+  (onWeb ? window.ACTWeb.fetch : fetch)("/api/ping").then((r) => r.json()).then((p) => { $("#version").textContent = `Version ${p.version} · Open source, MIT license`; }).catch(() => {});
   $("#u").focus();
   $("#login").addEventListener("submit", async (ev) => {
     ev.preventDefault();
@@ -1020,17 +1023,19 @@ async function settingsPage(t, q) {
   <div class="block"><div class="block-head"><h2 class="block-title">Account</h2></div>
     <div class="setting"><div><div class="setting-title">${esc(u.fullname || "")}</div><div class="setting-desc">Signed in${u.username ? " as " + esc(u.username) : ""} on activity.act.edu</div></div>
       <button class="btn btn-secondary" type="button" data-action="signout">${ic("sign-out", "icon-sm")}Sign out</button></div>
-    <div class="setting"><div id="statusline">${statusLine(S.status.watcher)}</div>
-      <button class="btn btn-secondary" type="button" data-action="check" id="checkbtn">${ic("retry", "icon-sm")}Check now</button></div></div>
+    ${onWeb ? "" : `<div class="setting"><div id="statusline">${statusLine(S.status.watcher)}</div>
+      <button class="btn btn-secondary" type="button" data-action="check" id="checkbtn">${ic("retry", "icon-sm")}Check now</button></div>`}</div>
 
   <div class="block"><div class="block-head"><h2 class="block-title">Appearance</h2></div>
-    <div class="setting is-full"><div><div class="setting-title">Theme</div><div class="setting-desc">System follows your computer: Nocturne when it is in dark mode, Daylight when it is light.</div></div>
+    <div class="setting is-full"><div><div class="setting-title">Theme</div><div class="setting-desc">System follows your ${onAndroid ? "phone" : onWeb ? "device" : "computer"}: Nocturne when it is in dark mode, Daylight when it is light.</div></div>
       <div class="themes" role="radiogroup" aria-label="Theme">${THEMES.map(([v, label]) => `<label class="theme-opt"><input type="radio" name="theme" value="${v}" ${v === theme ? "checked" : ""}>${preview(v)}<span class="theme-name">${label}</span></label>`).join("")}</div></div></div>
 
   <div class="block" id="courses-block"><div class="block-head"><h2 class="block-title">Courses</h2><button class="btn btn-ghost" type="button" data-action="co-reset">Reset</button></div>
     <p class="setting-desc settings-note">Drag to reorder, or use the arrows. Click a color to change it. Order and colors apply everywhere: Home, Planner, Courses, Grades and search.</p>
     <ol class="course-order" id="colist" aria-label="Course order">${S.courses.map((c, i) => coRow(c, i, S.courses.length)).join("")}</ol></div>
 
+  ${onWeb ? `<div class="block"><div class="block-head"><h2 class="block-title">Alerts</h2></div>
+    <p class="setting-desc settings-note">The web app can't check for deadlines and grades while it's closed, so it sends no alerts. For alerts, use ACT Companion on a computer or an Android phone. Version ${esc(S.status.version)}.</p></div>` : `
   <div class="block"><div class="block-head"><h2 class="block-title">Alerts</h2><button class="btn btn-ghost" type="button" data-action="test">${ic("send", "icon-sm")}Send a test alert</button></div>
     <div class="setting"><div><div class="setting-title">Deadlines and reminders</div><div class="setting-desc">New deadlines, and a reminder before each one is due.</div></div>${toggle('data-set="alerts.deadlines"', s.alerts.deadlines, "Deadlines and reminders")}</div>
     <div class="setting is-sub${s.alerts.deadlines ? "" : " is-off"}" data-parent="deadlines"><div><div class="setting-title">Remind me this many hours before</div><div class="setting-desc">Separate with commas.</div></div>
@@ -1045,13 +1050,15 @@ async function settingsPage(t, q) {
       <label class="seg-opt"><input type="radio" name="watch" value="all" ${watchAll ? "checked" : ""}>All courses</label><label class="seg-opt"><input type="radio" name="watch" value="selected" ${watchAll ? "" : "checked"}>Selected</label></div></div>
     <div class="course-checks" id="watchlist" ${watchAll ? "hidden" : ""}>${S.courses.map((c) => `<div class="setting ${cc(c.id)}"><div class="setting-title">${codeSpan(c)} ${esc(courseTitle(c))}</div>
       ${toggle(`data-watch="${c.id}"`, watchAll || watched.has(c.id), "Watch " + shortName(c))}</div>`).join("")}</div>
-    <div class="setting"><div><div class="setting-title">Check deadlines${s.alerts.content ? " and course changes" : ""} every</div></div><select class="select freq-select" data-set="interval_minutes" aria-label="Deadline check frequency">${opt([1, 2, 5, 10, 15, 30], s.interval_minutes, "minute")}</select></div>
+    <div class="setting"><div><div class="setting-title">Check deadlines${s.alerts.content ? " and course changes" : ""} every</div></div><select class="select freq-select" data-set="interval_minutes" aria-label="Deadline check frequency">${onAndroid ? opt([15, 30, 60], Math.max(15, s.interval_minutes), "minute") : opt([1, 2, 5, 10, 15, 30], s.interval_minutes, "minute")}</select></div>
     <div class="setting"><div><div class="setting-title">Check grades every</div><div class="setting-desc">Shorter intervals add load to the school's server.</div></div><select class="select freq-select" data-set="grades_interval_minutes" aria-label="Grade check frequency">${opt([5, 15, 30, 60], s.grades_interval_minutes, "minute")}</select></div></div>
 
-  <div class="block"><div class="block-head"><h2 class="block-title">This computer</h2></div>
+  <div class="block"><div class="block-head"><h2 class="block-title">This ${onAndroid ? "phone" : "computer"}</h2></div>
+    ${onAndroid ? `<div class="setting"><div><div class="setting-title">If alerts stop arriving</div><div class="setting-desc">Some phones, Samsung's among them, pause apps you don't open often. In App settings, set Battery to Unrestricted.</div></div>
+      <button class="btn btn-secondary" type="button" data-action="app-settings">${ic("external", "icon-sm")}App settings</button></div>` : ""}
     ${S.status.autostart.supported ? `<div class="setting"><div><div class="setting-title">Start when I log in to this computer</div><div class="setting-desc">Alerts only arrive while ACT Companion is running.</div></div>${toggle("data-autostart", S.status.autostart.enabled, "Start at login")}</div>` : ""}
-    <div class="setting"><div><div class="setting-title">Quit ACT Companion</div><div class="setting-desc">${S.status.desktop ? "Closing the window keeps it running in the system tray." : "Closing the tab keeps it running."} Quitting stops alerts until you open it again. Version ${esc(S.status.version)}.</div></div>
-      <button class="btn btn-danger" type="button" data-action="quit">${ic("power", "icon-sm")}Quit</button></div></div>`);
+    <div class="setting"><div><div class="setting-title">Quit ACT Companion</div><div class="setting-desc">${onAndroid ? "Alerts keep arriving when the app is closed." : S.status.desktop ? "Closing the window keeps it running in the system tray." : "Closing the tab keeps it running."} Quitting stops alerts until you open it again. Version ${esc(S.status.version)}.</div></div>
+      <button class="btn btn-danger" type="button" data-action="quit">${ic("power", "icon-sm")}Quit</button></div></div>`}`);
   if (q.focus === "courses") $("#courses-block").scrollIntoView({block: "start"});
 }
 
@@ -1082,6 +1089,7 @@ function settingsChange(el) {
   if (el.name === "theme") {
     el.value === "system" ? delete document.documentElement.dataset.theme : (document.documentElement.dataset.theme = el.value);
     store.set("theme", el.value === "system" ? null : el.value);
+    requestAnimationFrame(syncSystemBars);
     toast(`Theme set to ${THEMES.find(([v]) => v === el.value)[1]}`);
     return;
   }
@@ -1322,6 +1330,31 @@ function activatePalette(i) {
 // Inside the app window there is no browser tab to open: web links go to the system browser, and course files
 // go to the app, which saves them to Downloads and opens them (or shows them in their folder if unsafe to open).
 const inApp = () => !!(window.pywebview && window.pywebview.api);
+
+// The Android app's bridge answers synchronously, and file downloads report back through ACTAndroidDone. Wrap it in
+// the same promise API as the desktop window so the code above works unchanged.
+if (onAndroid && !window.pywebview) {
+  const pending = new Map();
+  let seq = 0;
+  window.ACTAndroidDone = (id, r) => { const done = pending.get(id); pending.delete(id); if (done) done(r); };
+  window.pywebview = {api: {
+    open_external: async (url) => ({ok: window.ACTAndroid.openExternal(String(url))}),
+    open_file: (href, filename) => new Promise((resolve) => {
+      const id = String(++seq);
+      pending.set(id, resolve);
+      window.ACTAndroid.openFile(String(href), String(filename || ""), id);
+    }),
+  }};
+}
+
+// Android draws the status and navigation bars over the page, so tell it the theme's background color.
+function syncSystemBars() {
+  if (onAndroid) window.ACTAndroid.setBars(getComputedStyle(document.documentElement).backgroundColor);
+}
+if (onAndroid) {
+  matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => requestAnimationFrame(syncSystemBars));
+  requestAnimationFrame(syncSystemBars);
+}
 async function openInApp(href, filename) {
   if (href.startsWith("/api/file?")) {
     const label = filename || "file";
@@ -1357,7 +1390,7 @@ const ACTIONS = {
     route();
   },
   check: (el) => checkNow(el),
-  test: async () => { const r = await api("/test-notification", {}); r.ok ? toast("Test alert sent. Check your desktop notifications.") : toast("Couldn't show an alert on this system.", {error: true}); },
+  test: async () => { const r = await api("/test-notification", {}); r.ok ? toast(`Test alert sent. Check your ${onAndroid ? "" : "desktop "}notifications.`) : toast("Couldn't show an alert on this system.", {error: true}); },
   signout: async () => {
     if (!(await confirmDialog("Sign out?", "Alerts stop until you sign in again, and this app's history for your account is deleted.", "Sign out"))) return;
     await api("/logout", {});
@@ -1372,6 +1405,7 @@ const ACTIONS = {
   "co-up": (el) => moveCourse(el.closest(".co-row"), -1),
   "co-down": (el) => moveCourse(el.closest(".co-row"), 1),
   "co-color": (el) => toggleSwatches(el),
+  "app-settings": () => window.ACTAndroid.openAppSettings(),
   "co-reset": async () => {
     if (await saveSettings({course_order: [], course_colors: {}}, "Order and colors reset")) route();
   },

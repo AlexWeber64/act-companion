@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">ACT Companion</string>
+    <string name="channel_alerts">Alerts</string>
+    <string name="channel_alerts_desc">Deadlines, reminders and new grades</string>
+</resources>

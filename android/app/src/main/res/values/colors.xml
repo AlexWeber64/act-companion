@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="bg">#161826</color>         <!-- Nocturne background, shown while the page loads -->
+    <color name="icon_bg">#10111B</color>
+    <color name="accent">#9184D9</color>
+</resources>

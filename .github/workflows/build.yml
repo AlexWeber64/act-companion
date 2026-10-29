@@ -1,5 +1,5 @@
-# Builds ACT-Companion.exe on a GitHub-hosted Windows runner for every push and pull request.
-# Pushing a tag such as v0.2.0 also creates a draft GitHub release with that build attached.
+# Builds ACT-Companion.exe (on a GitHub-hosted Windows runner) and ACT-Companion.apk for every push and pull request.
+# Pushing a tag such as v0.2.0 also creates a draft GitHub release with both builds attached.
 name: Build
 
 on:
@@ -67,10 +67,53 @@ jobs:
           path: dist/ACT-Companion.exe
           if-no-files-found: error
 
+  android:
+    name: Build ACT-Companion.apk
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      # Chaquopy compiles the app's Python with a build Python of the same version as the app's (3.14).
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"
+
+      - name: Build
+        working-directory: android
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: |
+          if [ -n "$ANDROID_KEYSTORE_BASE64" ]; then
+            echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"
+            export ANDROID_KEYSTORE_FILE="$RUNNER_TEMP/release.jks"
+          elif [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            echo "::error::Release builds need the ANDROID_KEYSTORE_* secrets (see android/README.md)"
+            exit 1
+          fi
+          ./gradlew assembleRelease --no-daemon
+          cp app/build/outputs/apk/release/app-release*.apk "$RUNNER_TEMP/ACT-Companion.apk"
+          echo "SHA-256 of ACT-Companion.apk: \`$(sha256sum "$RUNNER_TEMP/ACT-Companion.apk" | cut -d' ' -f1)\`" >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ACT-Companion-android
+          path: ${{ runner.temp }}/ACT-Companion.apk
+          if-no-files-found: error
+
   release:
     name: Draft release
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: build
+    needs: [build, android]
     runs-on: ubuntu-latest
     timeout-minutes: 90
     permissions:
@@ -99,11 +142,17 @@ jobs:
           name: ACT-Companion
           path: release
 
+      - uses: actions/download-artifact@v8
+        with:
+          name: ACT-Companion-android
+          path: release
+
       - name: Create draft release
         env:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ needs.build.outputs.version }}
         run: |
-          sum=$(sha256sum release/ACT-Companion.exe | cut -d' ' -f1)
-          gh release create "$GITHUB_REF_NAME" release/ACT-Companion.exe --repo "$GITHUB_REPOSITORY" --draft \
-            --title "ACT Companion $VERSION" --notes "SHA-256 of ACT-Companion.exe: \`$sum\`"
+          cd release
+          notes=$(for f in ACT-Companion.exe ACT-Companion.apk; do echo "SHA-256 of $f: \`$(sha256sum "$f" | cut -d' ' -f1)\`"; echo; done)
+          gh release create "$GITHUB_REF_NAME" ACT-Companion.exe ACT-Companion.apk --repo "$GITHUB_REPOSITORY" --draft \
+            --title "ACT Companion $VERSION" --notes "$notes"

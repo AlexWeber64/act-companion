@@ -1,7 +1,11 @@
 """Minimal Moodle Web Services client for activity.act.edu."""
-import keyring
-import keyring.errors
 import requests
+
+try:
+    import keyring
+    import keyring.errors
+except ImportError:  # the Android app ships without keyring; its private storage is only readable by the app
+    keyring = None
 
 from . import config
 
@@ -34,6 +38,9 @@ def request_token(username, password, service="moodle_mobile_app"):
 # The token goes in the OS keychain (Credential Manager, Keychain, Secret Service).
 # Some Linux setups have no keychain, so fall back to a user-only file in the data dir.
 def save_token(token):
+    if keyring is None:
+        config.write_private(config.TOKEN_FALLBACK_FILE, token)
+        return
     try:
         keyring.set_password(KEYRING_SERVICE, KEYRING_NAME, token)
         config.TOKEN_FALLBACK_FILE.unlink(missing_ok=True)
@@ -44,7 +51,7 @@ def save_token(token):
 
 def load_token():
     try:
-        token = keyring.get_password(KEYRING_SERVICE, KEYRING_NAME)
+        token = keyring and keyring.get_password(KEYRING_SERVICE, KEYRING_NAME)
         if token:
             return token
     except keyring.errors.KeyringError:
@@ -56,10 +63,11 @@ def load_token():
 
 
 def clear_token():
-    try:
-        keyring.delete_password(KEYRING_SERVICE, KEYRING_NAME)
-    except keyring.errors.KeyringError:
-        pass
+    if keyring is not None:
+        try:
+            keyring.delete_password(KEYRING_SERVICE, KEYRING_NAME)
+        except keyring.errors.KeyringError:
+            pass
     config.TOKEN_FALLBACK_FILE.unlink(missing_ok=True)
 
 

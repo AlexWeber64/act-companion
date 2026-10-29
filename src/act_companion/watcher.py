@@ -207,6 +207,7 @@ class Watcher:
         self._courses = None
         self._courses_at = 0
         self._uid = None
+        self._running = threading.Lock()
 
     def reset(self):
         """Forget cached account data, e.g. after logging in as someone else."""
@@ -220,6 +221,15 @@ class Watcher:
         return self._courses
 
     def run_once(self):
+        """One round of checks. True if it worked, False if it failed, None if another round was already running."""
+        if not self._running.acquire(blocking=False):
+            return None
+        try:
+            return self._run_once()
+        finally:
+            self._running.release()
+
+    def _run_once(self):
         settings = config.load_settings()
         self.status["last_run"] = time.time()
         out = []
@@ -274,3 +284,11 @@ class Watcher:
             self.status["next_run"] = time.time() + wait
             self.wake.wait(wait)
             self.wake.clear()
+
+    def run_on_wake(self, stop):
+        """Android: WorkManager schedules the checks, so this thread only runs one when asked (sign in, Check now)."""
+        while not stop.is_set():
+            self.wake.wait()
+            self.wake.clear()
+            if not stop.is_set():
+                self.run_once()
