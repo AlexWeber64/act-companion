@@ -214,7 +214,7 @@ function postFrame(html) {
   const css = getComputedStyle(document.documentElement);
   const v = (n) => css.getPropertyValue(n).trim();
   const scheme = css.colorScheme && css.colorScheme !== "normal" ? css.colorScheme : "light";
-  f.srcdoc = `<base target="_blank"><meta name="color-scheme" content="${scheme}"><style>:root{color-scheme:${scheme}}@font-face{font-family:Inter;src:url("/fonts/InterVariable.woff2") format("woff2");font-weight:100 900}
+  f.srcdoc = `<base target="_blank"><meta name="color-scheme" content="${scheme}"><style>:root{color-scheme:${scheme}}@font-face{font-family:Inter;src:url("fonts/InterVariable.woff2") format("woff2");font-weight:100 900}
     body{margin:0;padding:14px 16px;font:14px/1.55 Inter,system-ui,"Segoe UI",sans-serif;color:${v("--color-text-2")};background:transparent;overflow-wrap:anywhere}
     a{color:${v("--color-accent-text")}}img{max-width:100%;height:auto}p:first-child{margin-top:0}p:last-child{margin-bottom:0}
     pre,code{font-family:ui-monospace,Consolas,monospace;font-size:13px;white-space:pre-wrap}</style>${html || ""}`;
@@ -1324,6 +1324,7 @@ function activatePalette(i) {
   closePalette(false);
   if (it.href.startsWith("#")) location.hash = it.href;
   else if (inApp()) openInApp(it.href, "");
+  else if (onWeb && window.ACTWeb.isFile(it.href)) window.ACTWeb.openFile(it.href, "");  // never put the token in a tab
   else window.open(it.href, "_blank", "noopener");
 }
 

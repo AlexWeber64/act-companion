@@ -260,14 +260,71 @@
     }
   }
 
-  window.ACTWeb = {fetch: apiFetch};
+  // ---- course files --------------------------------------------------------------------------------
 
-  // A download link to another site cannot use the download attribute, so open course files in a new tab instead of
-  // navigating away from the app.
-  document.addEventListener("click", (ev) => {
-    const a = ev.target.closest && ev.target.closest("a[download]");
-    if (a && a.origin !== location.origin) { a.target = "_blank"; a.rel = "noopener noreferrer"; }
+  // A course file's address carries the token. Opening it would leave that address in the browser's history, so
+  // download the file here instead and hand the browser a temporary local copy (Moodle allows this from any site).
+  const FILES = BASE + "/webservice/pluginfile.php/";
+  const isFile = (href) => typeof href === "string" && href.startsWith(FILES);
+  const say = (msg, opts) => { if (typeof window.toast === "function") window.toast(msg, opts); };
+
+  function nameOf(href) {
+    try { return decodeURIComponent(new URL(href).pathname.split("/").pop()) || "file"; } catch (e) { return "file"; }
+  }
+
+  async function openFile(href, name) {
+    name = name || nameOf(href);
+    let blob;
+    try {
+      const r = await fetch(href, {credentials: "omit", referrerPolicy: "no-referrer"});
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      blob = await r.blob();
+    } catch (e) {
+      say(`Couldn't download ${name}. ${e.message === "Failed to fetch" ? "Check your connection." : e.message}`, {error: true});
+      return;
+    }
+    // A bad or expired token gets a Moodle error in JSON instead of the file.
+    if (blob.type.includes("json") && !/\.json$/i.test(name)) {
+      const err = await blob.text().then((t) => JSON.parse(t), () => null);
+      if (err && err.errorcode) {
+        say(err.errorcode === "invalidtoken" ? `Couldn't download ${name}. Sign out and in again.` : `Couldn't download ${name}. ${err.error || err.message || ""}`, {error: true});
+        return;
+      }
+    }
+    // Never let a course file become a page of this app (the desktop server does the same).
+    if (/html|svg|javascript|xml/.test(blob.type)) blob = new Blob([blob], {type: "application/octet-stream"});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  }
+
+  function onFileClick(ev) {
+    const a = ev.target.closest && ev.target.closest("a[href]");
+    if (!a || !isFile(a.href)) return;
+    ev.preventDefault();
+    const name = a.dataset.download || a.getAttribute("download") || "";
+    if (android) {
+      if (typeof window.openInApp === "function") window.openInApp(a.href, name);  // the app saves it natively
+      return;
+    }
+    if (!a.dataset.download) say(`Downloading ${name || nameOf(a.href)}`, {icon: "download"});  // app.js announces the rest
+    openFile(a.href, name);
+  }
+
+  // Links on the page (on Android, app.js already sends these to the app), and links inside forum posts, which are
+  // shown in sandboxed frames that app.js does not see.
+  document.addEventListener("click", (ev) => { if (!android) onFileClick(ev); }, true);
+  document.addEventListener("load", (ev) => {
+    const f = ev.target;
+    if (f.tagName === "IFRAME" && f.contentDocument) f.contentDocument.addEventListener("click", onFileClick, true);
   }, true);
+
+  window.ACTWeb = {fetch: apiFetch, isFile, openFile};
 
   if (!android && "serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => { /* works without it */ });
 })();
