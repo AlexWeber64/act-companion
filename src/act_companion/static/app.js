@@ -240,6 +240,7 @@ const MORE_KEYS = new Set(["more", "deadlines", "grades", "notifications", "sett
 
 function renderShell() {
   vp().innerHTML = `
+  <div class="scroller" id="scroller">
   <div class="phone-top"><div class="brand" id="ptitle"><span class="brand-mark"></span>ACT Companion</div>
     <button class="btn btn-icon" type="button" aria-label="Search" data-action="palette">${ic("search")}</button>
     <a class="btn btn-icon" href="#/notifications" id="pbell" aria-label="Notifications">${ic("bell")}</a></div>
@@ -247,6 +248,7 @@ function renderShell() {
     <aside class="sidebar">${brand()}<nav class="side-nav" id="nav" aria-label="Main"></nav>
       <div class="sidebar-foot"><span>${esc((S.status.user || {}).fullname || "")}</span><span id="checked"></span></div></aside>
     <main class="main" id="view"></main>
+  </div>
   </div>
   <nav class="tabbar" id="tabbar" aria-label="Main"></nav>
   <div class="toasts" id="toasts" aria-live="polite"></div>
@@ -384,7 +386,7 @@ async function route() {
   const {parts, q} = parseHash();
   const [a = "", b, c, d, e, f] = parts;
   renderNav(a);
-  vp().scrollTop = 0;
+  $("#scroller").scrollTop = 0;
   const views = {
     "": () => homePage(t),
     planner: () => plannerPage(t, q),

@@ -4,7 +4,11 @@
 [hidden] { display: none !important; }
 .boot { min-height: 100dvh; display: grid; place-items: center; color: var(--color-text-4); font-size: var(--text-md); }
 
-/* .viewport has contain: layout, so fixed children are placed against it instead of scrolling with the page. */
+/* .viewport is a size container (layout containment), so fixed children are placed against it like absolute ones.
+   If .viewport scrolled, they would scroll away with the page (the phone tab bar drifted up). So .viewport stays
+   still and the page scrolls inside .scroller; the tab bar, toasts and search stay put. */
+.viewport:has(> .scroller) { overflow: hidden; }
+.scroller { height: 100%; overflow-y: auto; overscroll-behavior: contain; }
 .viewport > .toasts, .viewport > .palette-backdrop { position: fixed; }
 .palette-backdrop { animation: fade-in 120ms var(--ease); }
 @keyframes fade-in { from { opacity: 0; } }
