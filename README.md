@@ -1,6 +1,6 @@
 # ACT Companion
 
-A desktop, Android and iPhone companion for [activity.act.edu](https://activity.act.edu), the school's Moodle site. See your deadlines, grades,
+A desktop (Windows and Linux), Android and iPhone companion for [activity.act.edu](https://activity.act.edu), the school's Moodle site. See your deadlines, grades,
 course files, forums and messages in one clean dashboard, and get desktop alerts before things are due.
 
 It runs on your own computer or phone and signs in with your own account, the same way the official Moodle mobile app does.
@@ -41,6 +41,20 @@ If you move the .exe, open it once from its new place so start at login follows 
 Course files you open are saved to **Downloads > ACT Companion** and open in their usual app. Code and programs
 (such as `.py` or `.exe` files) are only saved and shown in their folder, never run.
 
+## Install on Linux (Fedora, Debian, Ubuntu and others)
+
+```sh
+sudo dnf install python3-gobject webkit2gtk4.1 libnotify   # Fedora; Debian/Ubuntu: python3-gi gir1.2-webkit2-4.1 libnotify-bin
+git clone https://github.com/AlexWeber64/act-companion.git
+cd act-companion
+packaging/install-linux.sh
+```
+
+This installs into your home folder (no root needed), adds **ACT Companion** to your app menu and puts `act-companion` in
+`~/.local/bin`. It opens in its own window using the system GTK and WebKit; without them it opens in your browser instead.
+Closing the window keeps it running so alerts keep arriving: open it again from the app menu, and quit from **Settings > Quit**.
+Remove it with `packaging/install-linux.sh --uninstall`.
+
 ## Install on Android
 
 1. On your phone, download **[ACT-Companion.apk](https://github.com/AlexWeber64/act-companion/releases/latest/download/ACT-Companion.apk)**
@@ -79,8 +93,7 @@ Then install and start it:
 | Windows | `.venv\Scripts\pip install -e .` | `.venv\Scripts\act-companion` |
 | macOS / Linux | `.venv/bin/pip install -e .` | `.venv/bin/act-companion` |
 
-ACT Companion opens in its own window (on Windows and macOS; on Linux, and with `act-companion --browser`, it uses your
-web browser instead). Sign in with your activity.act.edu username and password, then open **Settings** to pick your alerts
+ACT Companion opens in its own window (with `act-companion --browser` it uses your web browser instead). Sign in with your activity.act.edu username and password, then open **Settings** to pick your alerts
 and turn on **Start when I log in to this computer** so alerts keep arriving after a restart.
 
 Alerts only arrive while ACT Companion is running. Closing the window (or browser tab) does not stop it; on Windows it stays

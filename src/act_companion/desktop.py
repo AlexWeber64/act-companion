@@ -129,9 +129,11 @@ class App:
         self.window.restore()
 
     def on_closing(self):
-        if self.quitting or not self.tray:
+        # Windows has a tray icon to reopen from. Linux desktops often have none (GNOME), so the window just hides and
+        # running act-companion again (or its menu entry) brings it back.
+        if self.quitting or not (self.tray or sys.platform.startswith("linux")):
             return True
-        # Keep running in the tray so alerts keep arriving; tell the user once where it went.
+        # Keep running so alerts keep arriving; tell the user once where it went.
         threading.Thread(target=self.window.hide, daemon=True).start()
         if not TRAY_HINT_FLAG.exists():
             try:
@@ -139,7 +141,8 @@ class App:
                 TRAY_HINT_FLAG.write_text("1", encoding="utf-8")
             except OSError:
                 pass
-            notify.send("ACT Companion is still running", "Alerts keep coming. Open it again or quit from the tray icon.")
+            where = "the tray icon" if self.tray else "Settings"
+            notify.send("ACT Companion is still running", f"Alerts keep coming. Open it again from the app menu or quit from {where}.")
         return False
 
     def quit(self):

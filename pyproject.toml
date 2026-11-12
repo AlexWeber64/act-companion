@@ -13,8 +13,8 @@ dependencies = [
     "requests>=2.31",
     "keyring>=24",
     "platformdirs>=4",
-    # The app window (Edge WebView2 on Windows) and tray icon. Elsewhere it falls back to the browser.
-    "pywebview>=6; sys_platform == 'win32' or sys_platform == 'darwin'",
+    # The app window (Edge WebView2 on Windows, GTK WebKit on Linux) and tray icon. Without a usable backend it falls back to the browser.
+    "pywebview>=6; sys_platform == 'win32' or sys_platform == 'darwin' or sys_platform == 'linux'",
     "pystray>=0.19; sys_platform == 'win32'",
     "pillow>=10; sys_platform == 'win32'",
 ]
