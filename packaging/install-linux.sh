@@ -13,6 +13,7 @@ icon="$data/icons/hicolor/scalable/apps/act-companion.svg"
 
 if [[ "${1:-}" == "--uninstall" ]]; then
   rm -rf "$venv" "$bin" "$desktop" "$icon"
+  if command -v kbuildsycoca6 >/dev/null; then kbuildsycoca6 >/dev/null 2>&1 || true; fi
   echo "Removed. Your settings and sign-in are kept in $data/ACTCompanion (delete it too if you want)."
   exit 0
 fi
@@ -38,6 +39,8 @@ Categories=Education;
 Terminal=false
 DESKTOP
 update-desktop-database "$(dirname "$desktop")" 2>/dev/null || true
+# KDE keeps its own app cache and may not show the new entry until it is rebuilt.
+if command -v kbuildsycoca6 >/dev/null; then kbuildsycoca6 >/dev/null 2>&1 || true; fi
 
 echo "Installed. Open ACT Companion from your app menu, or run: act-companion"
 python3 -c "import gi" 2>/dev/null || echo "Note: python3-gobject is missing, so it will open in your browser (Fedora: sudo dnf install python3-gobject webkit2gtk4.1)."
