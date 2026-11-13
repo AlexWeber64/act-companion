@@ -9,10 +9,11 @@ data="${XDG_DATA_HOME:-$HOME/.local/share}"
 venv="$data/act-companion-app"
 bin="$HOME/.local/bin/act-companion"
 desktop="$data/applications/act-companion.desktop"
-icon="$data/icons/hicolor/scalable/apps/act-companion.svg"
+icon="$data/icons/hicolor/256x256/apps/act-companion.png"
+old_icon="$data/icons/hicolor/scalable/apps/act-companion.svg"
 
 if [[ "${1:-}" == "--uninstall" ]]; then
-  rm -rf "$venv" "$bin" "$desktop" "$icon"
+  rm -rf "$venv" "$bin" "$desktop" "$icon" "$old_icon"
   if command -v kbuildsycoca6 >/dev/null; then kbuildsycoca6 >/dev/null 2>&1 || true; fi
   echo "Removed. Your settings and sign-in are kept in $data/ACTCompanion (delete it too if you want)."
   exit 0
@@ -27,7 +28,9 @@ python3 -m venv --system-site-packages "$venv"
 
 mkdir -p "$(dirname "$bin")" "$(dirname "$desktop")" "$(dirname "$icon")"
 ln -sf "$venv/bin/act-companion" "$bin"
-cp "$root/src/act_companion/static/icon.svg" "$icon"
+cp "$root/src/act_companion/static/icon.png" "$icon"
+rm -f "$old_icon"
+gtk-update-icon-cache -q -t "$data/icons/hicolor" 2>/dev/null || true
 cat > "$desktop" <<DESKTOP
 [Desktop Entry]
 Type=Application

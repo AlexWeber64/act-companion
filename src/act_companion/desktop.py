@@ -200,7 +200,11 @@ class App:
         self.window.events.closing += self.on_closing
         self.start_tray()
         try:
-            webview.start(private_mode=False, storage_path=str(config.DATA / "webview"))
+            kw = {}
+            png = Path(__file__).parent / "static" / "icon.png"
+            if sys.platform.startswith("linux") and png.exists():  # the window's own icon (taskbar, title bar)
+                kw["icon"] = str(png)
+            webview.start(private_mode=False, storage_path=str(config.DATA / "webview"), **kw)
         finally:
             server.shutdown()
         return True
